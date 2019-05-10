@@ -6,50 +6,24 @@ C#, VB, Swift, Pascal, Fortran, Haskell, Objective-C, Assembly, HTML, CSS, JS, S
 Code, Compile, Run and Debug online from anywhere in world.
 
 *******************************************************************************/
-#include <stdio.h>
-#include <math.h>
-#include <time.h>
-#include <stdlib.h>
-#include <stdbool.h>
+#include "polar_codes.h"
 
-#define PI 3.1415926536
-#define M_SQRT1_2 0.70710678118654752440
-#define MAX_NUM_BITS 2048
-//#define DEBUG
-//#define STATIC
-
-typedef struct bitSet
+// using Lee Daniel Crocker's solution from
+// https://stackoverflow.com/questions/3064926/how-to-write-log-base2-in-c-c
+int intLog2(int x)
 {
-    unsigned int bits[MAX_NUM_BITS];
-    bool is_frozen[MAX_NUM_BITS];
-    unsigned int length;
-} bitSet;
-
-typedef struct binaryProb
-{
-    double prob0;
-    double prob1;
-    double llr;
-} binaryProb;
-
-typedef struct probSet
-{
-    binaryProb probabilities[MAX_NUM_BITS];
-    unsigned int length;
-} probSet;
-
-typedef struct dataSet
-{
-    double data[MAX_NUM_BITS];
-    bool is_frozen[MAX_NUM_BITS];
-    binaryProb probabilities[MAX_NUM_BITS];
-    unsigned int length;
-} dataSet;
+    int result = 0;
+    while (x >>= 1)
+    {
+        result++;
+    }
+    return result;
+}
 
 // AWGN generator from https://www.embeddedrelated.com/showcode/311.php
 double AWGN_generator()
 {/* Generates additive white Gaussian Noise samples with zero mean and a standard deviation of 1. */
- 
+
   double temp1;
   double temp2;
   double result;
@@ -86,7 +60,7 @@ double snrToVariance(double snr_db)
 {
     double snr_bel = (double)(-snr_db/10.0);
     double variance = pow(10, snr_bel);
-#ifdef DEBUG    
+#ifdef DEBUG
     printf("variance is: %g\n", variance);
 #endif
     return variance;
@@ -97,10 +71,48 @@ double awgnSnrDb(double snr_db)
 {
     double awgn_sample = AWGN_generator();
     double variance = snrToVariance(snr_db);
-#ifdef DEBUG    
+#ifdef DEBUG
     printf("sigma is: %g\n", sqrt(variance));
 #endif
     return sqrt(variance) * awgn_sample;
+}
+
+void printBitSet(bitSet * bits_to_print)
+{
+    printf("\n\tBitSet of length %d: [", bits_to_print->length);
+    for (int i = 0; i < bits_to_print->length; i++)
+    {
+#ifdef DEBUG
+        printf("%d (%s frozen)%s", bits_to_print->bits[i], bits_to_print->is_frozen[i] ? "is" : "not", i < bits_to_print->length - 1 ? ", " : "]\n");
+#else
+        printf("%d%s", bits_to_print->bits[i], i < bits_to_print->length - 1 ? ", " : "]\n");
+#endif
+    }
+}
+
+void printDataSet(dataSet * data_to_print)
+{
+    printf("\n\tTX data of length %d:\n", data_to_print->length);
+    for (int i = 0; i < data_to_print->length; i++)
+    {
+        printf("\t\tbit %d = %g :: p(0)=%g, p(1)=%g\n",
+                i,
+                data_to_print->data[i],
+                data_to_print->probabilities[i].prob0,
+                data_to_print->probabilities[i].prob1);
+    }
+}
+
+void printProbSet(probSet * probs_to_print)
+{
+    printf("\n\tProbSet of length %d: [", probs_to_print->length);
+    for (int i = 0; i < probs_to_print->length; i++)
+    {
+        printf("(p(0)=%g, p(1)=%g)%s",
+                probs_to_print->probabilities[i].prob0,
+                probs_to_print->probabilities[i].prob1,
+                i < probs_to_print->length - 1 ? ", " : "]\n");
+    }
 }
 
 void initBitSet(unsigned int * bits, unsigned int length, bitSet * bit_set)
@@ -124,12 +136,12 @@ void initUBits(bitSet * data_bits, bitSet * frozen_bits, bitSet * U_bits)
     }
     for (int i = 0; i < frozen_bits -> length; i++)
     {
-        /* 
+        /*
            frozen bits are set to 0 while everything else is still set to 1,
-           so when we go to add our data bits, we'll know which bits are already frozen 
+           so when we go to add our data bits, we'll know which bits are already frozen
         */
         frozen_bit_idx = frozen_bits->bits[i];
-        U_bits->bits[frozen_bit_idx] = 0; 
+        U_bits->bits[frozen_bit_idx] = 0;
         U_bits->is_frozen[frozen_bit_idx] = true;
     }
     for (int i = 0; i < total_length; i++)
@@ -143,109 +155,59 @@ void initUBits(bitSet * data_bits, bitSet * frozen_bits, bitSet * U_bits)
     U_bits->length = total_length;
 }
 
-
-void encodePolarDataV1(bitSet * data_bits, bitSet * frozen_bits, bitSet * encoded_bits)
+void initDecodeList(int num_bits, int list_size, decodeList * decode)
 {
-    //unsigned int U_bits[MAX_NUM_BITS];
-    initUBits(data_bits, frozen_bits, encoded_bits);
-    int U_iter = 0;
-    int U_pair_iter = 0;
-    for (int i = 1; i <= encoded_bits->length >> 1; i <<= 1)
+    decode->num_bits = num_bits;
+    decode->list_size = list_size;
+    for (int i = 0; i < num_bits; i++)
     {
-        U_iter = 0;
-        U_pair_iter = 0;
-        while (U_iter < encoded_bits->length)
+        decode->paths_in_use[i] = 0;
+        for (int j = 0; j < list_size; j++)
         {
-            for (U_pair_iter = U_iter; U_pair_iter < U_iter + i; U_pair_iter++)
-            {
-#ifdef DEBUG
-                printf("XORing index %d into index %d\n", U_pair_iter + i, U_pair_iter);
-#endif
-                encoded_bits->bits[U_pair_iter] ^= encoded_bits->bits[U_pair_iter+i];   
-            }            
-            U_iter = U_pair_iter + i;
+            decode->path_active[i][j] = false;
         }
     }
 }
 
-void encodePolarDataV2(bitSet * data_bits, bitSet * frozen_bits, bitSet * encoded_bits)
+// function for deep copying a dataSet struct
+void copyDataSet(dataSet * dest, dataSet * src)
 {
-    //unsigned int U_bits[MAX_NUM_BITS];
-    initUBits(data_bits, frozen_bits, encoded_bits);
-    int U_pair_iter = 0;
-    int U_iter_inc = 0;
-    int num_iter = 0;
-    for (int i = 1; i <= encoded_bits->length >> 1; i <<= 1)
+    dest->length = src->length;
+    for (int i = 0; i < src->length; i++)
     {
-        U_pair_iter = 0;
-        U_iter_inc = i << 1;
-        for (int U_iter = 0; U_iter < encoded_bits->length; U_iter += U_iter_inc)
-        {
-            for (U_pair_iter = U_iter; U_pair_iter < U_iter + i; U_pair_iter++)
-            {
-#ifdef DEBUG                
-                printf("XORing index %d into index %d\n", U_pair_iter + i, U_pair_iter);
-#endif                
-                encoded_bits->bits[U_pair_iter] ^= encoded_bits->bits[U_pair_iter+i];   
-                num_iter++;
-            }            
-        }
+        dest->data[i] = src->data[i];
+        dest->is_frozen[i] = src->is_frozen[i];
+        dest->probabilities[i].llr = src->probabilities[i].llr;
+        dest->probabilities[i].prob0 = src->probabilities[i].prob0;
+        dest->probabilities[i].prob1 = src->probabilities[i].prob1;
     }
-#ifdef DEBUG
-    printf("NUM ITERATIONS: %d\n", num_iter);
-#endif
 }
 
-void encodePolarData(bitSet * U_bits, bitSet * encoded_bits)
+double probPairMinValue(binaryProb * probs)
 {
-    //unsigned int U_bits[MAX_NUM_BITS];
-    
-    encoded_bits->length = U_bits->length;
-    for (int i = 0; i < U_bits->length; i++)
-    {
-        encoded_bits->bits[i] = U_bits->bits[i];
-        encoded_bits->is_frozen[i] = U_bits->is_frozen[i];
-    }
-    
-    int U_pair_iter = 0;
-    int U_iter_inc = 0;
-    int num_iter = 0;
-    for (int i = 1; i <= encoded_bits->length >> 1; i <<= 1)
-    {
-        U_pair_iter = 0;
-        U_iter_inc = i << 1;
-        for (int U_iter = 0; U_iter < encoded_bits->length; U_iter += U_iter_inc)
-        {
-            for (U_pair_iter = U_iter; U_pair_iter < U_iter + i; U_pair_iter++)
-            {
-#ifdef DEBUG                
-                printf("XORing index %d into index %d\n", U_pair_iter + i, U_pair_iter);
-#endif                
-                encoded_bits->bits[U_pair_iter] ^= encoded_bits->bits[U_pair_iter+i];   
-                num_iter++;
-            }            
-        }
-    }
-#ifdef DEBUG
-    printf("NUM ITERATIONS: %d\n", num_iter);
-#endif
+    return (probs->prob0 < probs->prob1 ? probs->prob0 : probs->prob1);
+}
+
+double probPairMaxValue(binaryProb * probs)
+{
+    return (probs->prob0 > probs->prob1 ? probs->prob0 : probs->prob1);
 }
 
 void transmitBitsOverAwgn(double snr_db, bitSet * bits_x, dataSet * data_y)
 {
     double variance = snrToVariance(snr_db);
-    double pdf_const = 1.0 / sqrt(2.0*PI*variance);
+    //double pdf_const = 1.0 / sqrt(2.0*PI*variance);
     double std_dev = sqrt(variance);
-#ifdef DEBUG     
+#ifdef DEBUG
     printf("std_dev is: %g\n", std_dev);
 #endif
     double awgn_sample;
     double prob0;
-    double prob1;    
-    
+    double prob1;
+
     data_y->length = bits_x->length;
-    
-    
+
+
     for (int i = 0; i < bits_x->length; i++)
     {
 #ifdef STATIC
@@ -268,167 +230,17 @@ void transmitBitsOverAwgn(double snr_db, bitSet * bits_x, dataSet * data_y)
         data_y->probabilities[i].prob0 = prob0;
         data_y->probabilities[i].prob1 = prob1;
         data_y->probabilities[i].llr = log(prob0 / prob1);
-#ifdef DEBUG        
-        printf("\nbit[%d] = %d, gets noise %g to become %g, prob0 = %g, prob1 = %g\n", 
-                i, 
+#ifdef DEBUG
+        printf("\nbit[%d] = %d, gets noise %g to become %g, prob0 = %g, prob1 = %g\n",
+                i,
                 bits_x->bits[i],
-                awgn_sample, 
+                awgn_sample,
                 data_y->data[i],
                 prob0,
                 prob1);
 #endif
         data_y->is_frozen[i] = bits_x->is_frozen[i];
     }
-}
-
-void decodePolarData(dataSet * rx_data, bitSet * decoded_bits)
-{
-    int U_pair_iter = 0;
-    int U_iter_inc = 0;
-    int num_iter = 0;
-    
-    double p0;
-    double p1;
-    double q0;
-    double q1;
-    double normalizer;
-    
-    decoded_bits->length = rx_data->length;
-    
-    for (int i = rx_data->length >> 1; i >= 1; i >>= 1)
-    {
-        U_pair_iter = 0;
-        U_iter_inc = i << 1;
-        for (int U_iter = 0; U_iter < rx_data->length; U_iter += U_iter_inc)
-        {
-            for (U_pair_iter = U_iter; U_pair_iter < U_iter + i; U_pair_iter++)
-            {
-#ifdef DEBUG                
-                printf("XORing index %d into index %d\n", U_pair_iter + i, U_pair_iter);
-#endif          
-                p0 = rx_data->probabilities[U_pair_iter].prob0;
-                p1 = rx_data->probabilities[U_pair_iter].prob1;
-                q0 = rx_data->probabilities[U_pair_iter+i].prob0;
-                q1 = rx_data->probabilities[U_pair_iter+i].prob1;
-                
-                rx_data->probabilities[U_pair_iter].prob0 = (p0 * q0) + (p1 * q1);
-                rx_data->probabilities[U_pair_iter].prob1 = (p0 * q1) + (p1 * q0);
-                
-                if (rx_data->probabilities[U_pair_iter].prob0 > rx_data->probabilities[U_pair_iter].prob1)
-                {
-                    normalizer = rx_data->probabilities[U_pair_iter].prob0;
-                    rx_data->probabilities[U_pair_iter+i].prob0 = (p0 * q0)/normalizer;
-                    rx_data->probabilities[U_pair_iter+i].prob1 = (p1 * q1)/normalizer;
-                }
-                else
-                {
-                    normalizer = rx_data->probabilities[U_pair_iter].prob1;
-                    rx_data->probabilities[U_pair_iter+i].prob0 = (p1 * q0)/normalizer;
-                    rx_data->probabilities[U_pair_iter+i].prob1 = (p0 * q1)/normalizer;    
-                }
-                rx_data->probabilities[U_pair_iter].prob0 /= normalizer;
-                rx_data->probabilities[U_pair_iter].prob1 /= normalizer;                
-                num_iter++;
-            }            
-        }
-    }
-    
-#ifdef DEBUG
-    printDataSet(rx_data); 
-#endif  
-
-    for (int i = 0; i < rx_data->length; i++)
-    {
-        decoded_bits->is_frozen[i] = rx_data->is_frozen[i];
-        if (rx_data->is_frozen[i] == true)
-        {
-            decoded_bits->bits[i] = 0;
-        }
-        else if (rx_data->probabilities[i].prob0 > rx_data->probabilities[i].prob1)
-        {
-            decoded_bits->bits[i] = 0;
-        }
-        else
-        {
-            decoded_bits->bits[i] = 1;
-        }
-    }
-    
-}
-
-void decodeListPolarData(dataSet * rx_data, bitSet * decoded_bits, int list_size)
-{
-    int U_pair_iter = 0;
-    int U_iter_inc = 0;
-    int num_iter = 0;
-    
-    double p0;
-    double p1;
-    double q0;
-    double q1;
-    double normalizer;
-    
-    decoded_bits->length = rx_data->length;
-    
-    for (int i = rx_data->length >> 1; i >= 1; i >>= 1)
-    {
-        U_pair_iter = 0;
-        U_iter_inc = i << 1;
-        for (int U_iter = 0; U_iter < rx_data->length; U_iter += U_iter_inc)
-        {
-            for (U_pair_iter = U_iter; U_pair_iter < U_iter + i; U_pair_iter++)
-            {
-#ifdef DEBUG                
-                printf("XORing index %d into index %d\n", U_pair_iter + i, U_pair_iter);
-#endif          
-                p0 = rx_data->probabilities[U_pair_iter].prob0;
-                p1 = rx_data->probabilities[U_pair_iter].prob1;
-                q0 = rx_data->probabilities[U_pair_iter+i].prob0;
-                q1 = rx_data->probabilities[U_pair_iter+i].prob1;
-                
-                rx_data->probabilities[U_pair_iter].prob0 = (p0 * q0) + (p1 * q1);
-                rx_data->probabilities[U_pair_iter].prob1 = (p0 * q1) + (p1 * q0);
-                
-                if (rx_data->probabilities[U_pair_iter].prob0 > rx_data->probabilities[U_pair_iter].prob1)
-                {
-                    normalizer = rx_data->probabilities[U_pair_iter].prob0;
-                    rx_data->probabilities[U_pair_iter+i].prob0 = (p0 * q0)/normalizer;
-                    rx_data->probabilities[U_pair_iter+i].prob1 = (p1 * q1)/normalizer;
-                }
-                else
-                {
-                    normalizer = rx_data->probabilities[U_pair_iter].prob1;
-                    rx_data->probabilities[U_pair_iter+i].prob0 = (p1 * q0)/normalizer;
-                    rx_data->probabilities[U_pair_iter+i].prob1 = (p0 * q1)/normalizer;    
-                }
-                rx_data->probabilities[U_pair_iter].prob0 /= normalizer;
-                rx_data->probabilities[U_pair_iter].prob1 /= normalizer;                
-                num_iter++;
-            }            
-        }
-    }
-    
-#ifdef DEBUG
-    printDataSet(rx_data); 
-#endif  
-
-    for (int i = 0; i < rx_data->length; i++)
-    {
-        decoded_bits->is_frozen[i] = rx_data->is_frozen[i];
-        if (rx_data->is_frozen[i] == true)
-        {
-            decoded_bits->bits[i] = 0;
-        }
-        else if (rx_data->probabilities[i].prob0 > rx_data->probabilities[i].prob1)
-        {
-            decoded_bits->bits[i] = 0;
-        }
-        else
-        {
-            decoded_bits->bits[i] = 1;
-        }
-    }
-    
 }
 
 void generateDataBits(int length, bitSet * data_bits)
@@ -446,14 +258,14 @@ void generateUBits(int length, int num_frozen_bits, bitSet * U_bits)
     {
         return;
     }
-    
+
     int rand_idx = 0;
     U_bits->length = length;
     for (int i = 0; i < length; i++)
     {
         U_bits->is_frozen[i] = false;
     }
-    
+
     int frozen_bit_count = 0;
     while (frozen_bit_count < num_frozen_bits)
     {
@@ -468,12 +280,12 @@ void generateUBits(int length, int num_frozen_bits, bitSet * U_bits)
             frozen_bit_count++;
         }
     }
-    
+
     for (int i = 0; i < length; i++)
     {
         if (U_bits->is_frozen[i] == false)
         {
-#ifdef STATIC   
+#ifdef STATIC
             U_bits->bits[i] = 0;
 #else
             U_bits->bits[i] = rand() % 2;
@@ -484,90 +296,55 @@ void generateUBits(int length, int num_frozen_bits, bitSet * U_bits)
             U_bits->bits[i] = 0;
         }
     }
-        
+
 }
 
 double calculateBER(bitSet * codeword, bitSet * senseword)
 {
     double num_bits = (double)codeword->length;
     int num_errors = 0;
-#ifdef DEBUG
+    double ber = 0;
+#ifdef BER_TESTING
     printf("\nbits in error: ");
 #endif
     for (int i = 0; i < codeword->length; i++)
     {
         if (codeword->bits[i] != senseword->bits[i])
         {
-#ifdef DEBUG
+#ifdef BER_TESTING
             printf("%d ", i);
 #endif
             num_errors++;
         }
     }
-#ifdef DEBUG
+#ifdef BER_TESTING
             printf("\n");
-#endif    
-    return ((double)num_errors)/num_bits;
-}
-
-void printBitSet(bitSet * bits_to_print)
-{
-    printf("\n\tBitSet of length %d: [", bits_to_print->length);
-    for (int i = 0; i < bits_to_print->length; i++)
-    {
-#ifdef DEBUG
-        printf("%d (%s frozen)%s", bits_to_print->bits[i], bits_to_print->is_frozen[i] ? "is" : "not", i < bits_to_print->length - 1 ? ", " : "]\n");
-#else
-        printf("%d%s", bits_to_print->bits[i], i < bits_to_print->length - 1 ? ", " : "]\n");
 #endif
-    }
+    ber = ((double)num_errors)/num_bits;
+    printf("BER is: %g\n", ber);
+    return ber;
 }
 
-void printDataSet(dataSet * data_to_print)
-{
-    printf("\n\tTX data of length %d:\n", data_to_print->length);
-    for (int i = 0; i < data_to_print->length; i++)
-    {
-        printf("\t\tbit %d = %g :: p(0)=%g, p(1)=%g\n", 
-                i,
-                data_to_print->data[i], 
-                data_to_print->probabilities[i].prob0, 
-                data_to_print->probabilities[i].prob1);
-    }
-}
-
-void printProbSet(probSet * probs_to_print)
-{
-    printf("\n\tProbSet of length %d: [", probs_to_print->length);
-    for (int i = 0; i < probs_to_print->length; i++)
-    {
-        printf("(p(0)=%g, p(1)=%g)%s", 
-                probs_to_print->probabilities[i].prob0, 
-                probs_to_print->probabilities[i].prob1, 
-                i < probs_to_print->length - 1 ? ", " : "]\n");
-    }
-}
-
-double simulatePolarBER(double snr_db)
+double simulatePolarBER(double snr_db, int num_bits)
 {
     bitSet U_bits;
     bitSet encoded_bits;
     bitSet decoded_bits;
     dataSet tx_data;
-    generateUBits(MAX_NUM_BITS, MAX_NUM_BITS >> 1, &U_bits);
+    generateUBits(num_bits, num_bits >> 1, &U_bits);
     encodePolarData(&U_bits, &encoded_bits);
 
-    transmitBitsOverAwgn(snr_db, &encoded_bits, &tx_data);    
+    transmitBitsOverAwgn(snr_db, &encoded_bits, &tx_data);
     decodePolarData(&tx_data, &decoded_bits);
     return calculateBER(&U_bits, &decoded_bits);
 }
 
-void simulatePolarBERCurve(int snr_start, int snr_end)
+void simulatePolarBERCurve(int snr_start, int snr_end, int num_bits)
 {
     int num_points = 0;
     double snrs[MAX_NUM_BITS];
     double bers[MAX_NUM_BITS];
-    
+
     printf("\nSNRs: [");
     for (double snr = snr_start; snr <= snr_end; snr = snr + 0.5)
     {
@@ -579,59 +356,49 @@ void simulatePolarBERCurve(int snr_start, int snr_end)
     printf("\nBERs: [");
     for (int i = 0; i < num_points; i++)
     {
-        bers[i] = simulatePolarBER(snrs[i]);
+        bers[i] = simulatePolarBER(snrs[i], num_bits);
         printf("%g%s", bers[i], (i + 1 >= num_points) ? "]\n" : ", ");
     }
-    
-    
 }
 
-int main()
+double simulateListPolarBER(double snr_db, int num_bits, int list_size)
 {
-    srand(time(0));
-    //bitSet frozen_bits;
-    //bitSet data_bits;
     bitSet U_bits;
     bitSet encoded_bits;
     bitSet decoded_bits;
     dataSet tx_data;
-    double snr_db = 2.0;
-    /*
-    initBitSet((unsigned int[]){1, 1}, 2, &data_bits);
-    initBitSet((unsigned int[]){0, 2}, 2, &frozen_bits);   
-    initBitSet((unsigned int[]){0, 0, 0, 0}, 4, &data_bits);
-    initBitSet((unsigned int[]){0, 1, 1, 0}, 4, &data_bits);
-    initBitSet((unsigned int[]){1, 4, 6, 2}, 4, &frozen_bits);
-    
-    initUBits(&data_bits, &frozen_bits, &U_bits);
-    encodePolarDataV2(&data_bits, &frozen_bits, &encoded_bits);
-    */
-    generateUBits(MAX_NUM_BITS, MAX_NUM_BITS >> 1, &U_bits);
+    generateUBits(num_bits, num_bits >> 1, &U_bits);
     encodePolarData(&U_bits, &encoded_bits);
 
     transmitBitsOverAwgn(snr_db, &encoded_bits, &tx_data);
-    /*
-    printf("\ndata_bits:");
-    printBitSet(&data_bits);
-    
-    printf("\nfrozen_bits:");
-    printBitSet(&frozen_bits);
-    */
-    //printf("\nU_bits:");
-    //printBitSet(&U_bits);
-    
-    //printf("\nencoded_bits:");
-    //printBitSet(&encoded_bits);    
-    
-    //printf("\ntransmitted data:");
-    //printDataSet(&tx_data); 
-    
-    decodePolarData(&tx_data, &decoded_bits);    
-
-    simulatePolarBERCurve(1, 10);
-    
-    return 0;
+    decodeListPolarData(&tx_data, &decoded_bits, list_size);
+    return calculateBER(&U_bits, &decoded_bits);
 }
+
+void simulateListPolarBERCurve(int snr_start, int snr_end, int num_bits, int list_size)
+{
+    int num_points = 0;
+    double snrs[MAX_NUM_BITS];
+    double bers[MAX_NUM_BITS];
+
+    printf("\nSNRs: [");
+    for (double snr = snr_start; snr <= snr_end; snr = snr + 0.5)
+    {
+        snrs[num_points] = snr;
+        printf("%g%s", snr, (snr + 0.5 > snr_end) ? "]\n" : ", ");
+        num_points++;
+    }
+
+    printf("\nBERs: [");
+    for (int i = 0; i < num_points; i++)
+    {
+        bers[i] = simulateListPolarBER(snrs[i], num_bits, list_size);
+        printf("%g%s", bers[i], (i + 1 >= num_points) ? "]\n" : ", ");
+    }
+}
+
+
+
 
 
 
