@@ -22,9 +22,9 @@ obosa obazuaye, 2019
  ******************/
 #define PI 3.1415926536
 #define M_SQRT1_2 0.70710678118654752440
-#define MAX_NUM_BITS 32
-#define MAX_NUM_PATHS 32
-#define DEBUG
+#define MAX_NUM_BITS 1024
+#define MAX_NUM_PATHS 2
+//#define DEBUG
 #define BER_TESTING
 //#define NORMALIZE
 
@@ -74,7 +74,7 @@ typedef struct decodeIterator
 typedef struct activePath
 {
     bool is_active;
-    double parent_likelihood;
+    int branch_width;
 } activePath;
 
 typedef struct decodeList
@@ -103,10 +103,13 @@ void printDataSet(dataSet * data_to_print);
 void printProbSet(probSet * probs_to_print);
 
 void copyDataSet(dataSet * dest, dataSet * src);
+void copyPathActiveArray(bool * dest, bool * src, int length);
+void copyActivePathArray(bool * dest, bool * src, int length);
+void dumpPathsToProbSetArrayAndClear(decodeList * decode_list, int bit_idx, probSet * probs);
 
 void initBitSet(unsigned int * bits, unsigned int length, bitSet * bit_set);
 void initUBits(bitSet * data_bits, bitSet * frozen_bits, bitSet * U_bits);
-void initDecodeList(int num_bits, int list_size, decodeList * decode);
+void initDecodeList(dataSet * initial_rx_data, int list_size, decodeList * decode);
 
 void transmitBitsOverAwgn(double snr_db, bitSet * bits_x, dataSet * data_y);
 
@@ -132,7 +135,7 @@ void encodePolarData(bitSet * U_bits, bitSet * encoded_bits);
 
 // polar_decode.c
 void addToDecodeList(dataSet * rx_data, int bit_idx, int path_idx, decodeList * decode_list);
-void splitPathAndAddToDecodeList(dataSet * rx_data, int bit_idx, int bit_pair_idx, decodeList * decode_list);
+void splitPathAndAddToDecodeList(int path_idx, int bit_idx, int bit_pair_idx, probSet * bit_pair_probs, decodeList * decode_list);
 void decodePolarData(dataSet * rx_data, bitSet * decoded_bits);
 void decodeListPolarData(dataSet * rx_data, bitSet * decoded_bits, int list_size);
 

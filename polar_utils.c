@@ -155,14 +155,23 @@ void initUBits(bitSet * data_bits, bitSet * frozen_bits, bitSet * U_bits)
     U_bits->length = total_length;
 }
 
-void initDecodeList(int num_bits, int list_size, decodeList * decode)
+void initDecodeList(dataSet * initial_rx_data, int list_size, decodeList * decode)
 {
+    int num_bits = initial_rx_data->length;
     decode->num_bits = num_bits;
+    if (list_size < 1)
+    {
+        // provision to make sure list size is at least 1
+        list_size = 1;
+    }
     decode->list_size = list_size;
     for (int i = 0; i < num_bits; i++)
     {
-        decode->paths_in_use[i] = 0;
-        for (int j = 0; j < list_size; j++)
+        // always start with the first path active: the initial dataSet
+        copyDataSet(&(decode->path_list[i][0]), initial_rx_data);
+        decode->paths_in_use[i] = 1;
+        decode->path_active[i][0] = true;
+        for (int j = 1; j < list_size; j++)
         {
             decode->path_active[i][j] = false;
         }
@@ -181,6 +190,29 @@ void copyDataSet(dataSet * dest, dataSet * src)
         dest->probabilities[i].prob0 = src->probabilities[i].prob0;
         dest->probabilities[i].prob1 = src->probabilities[i].prob1;
     }
+}
+
+void copyPathActiveArray(bool * dest, bool * src, int length)
+{
+    for (int i = 0; i < length; i++)
+    {
+        dest[i] = src[i];
+    }
+}
+
+void dumpPathsToProbSetArrayAndClear(decodeList * decode_list, int bit_idx, probSet * probs)
+{
+    int prob_idx = 0;
+    for (int i = 0; i < decode_list->list_size; i++)
+    {
+        if (decode_list->path_active[bit_idx][i] == true)
+        {
+            probs->probabilities[prob_idx] = decode_list->path_list[bit_idx][i].probabilities[bit_idx];
+            decode_list->path_active[bit_idx][i] = false;
+            prob_idx++;
+        }
+    }
+    probs->length = prob_idx;
 }
 
 double probPairMinValue(binaryProb * probs)

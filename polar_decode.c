@@ -182,7 +182,7 @@ int findListMaxLikelihoodPath(int bit_idx, decodeList * decode_list)
 int findListMinLikelihoodPath(int bit_idx, decodeList * decode_list)
 {
     int min_idx = 0;
-    double min_prob_val = 0.0;
+    double min_prob_val = 200.0;
 
     for (int i = 0; i < decode_list->list_size; i++)
     {
@@ -230,8 +230,8 @@ void addToDecodeList(dataSet * rx_data, int bit_idx, int path_idx, decodeList * 
     }
     else
     {
-        // if there aren't any open paths, just overwrite the least viable path
-        //worst_path_idx = findListMinLikelihoodPath(bit_idx, decode_list);
+        // if there aren't any open paths, just overwrite the path given
+        // in the arguments (should be the parent path)
         removePath(bit_idx, path_idx, decode_list);
         copyDataSet(&(decode_list->path_list[bit_idx][path_idx]), rx_data);
         decode_list->path_active[bit_idx][path_idx] = true;
@@ -242,7 +242,7 @@ void addToDecodeList(dataSet * rx_data, int bit_idx, int path_idx, decodeList * 
 // add a dataSet to the decoding list
 // bit_idx is which XOR bit ("a") i'm in
 // bit_pair_idx is which paired bit ("b") i'm going to split paths of
-void splitPathAndAddToDecodeList(dataSet * rx_data, int bit_idx, int bit_pair_idx, decodeList * decode_list)
+void splitPathAndAddToDecodeList(int path_idx, int bit_idx, int bit_pair_idx, probSet * bit_pair_probs, decodeList * decode_list)
 {
     double p0;
     double p1;
@@ -257,187 +257,188 @@ void splitPathAndAddToDecodeList(dataSet * rx_data, int bit_idx, int bit_pair_id
     dataSet * bit_pair_path;
     double normalizer;
     bool a0_greaterthan_a1 = false;
+    static bool path_active_copy[MAX_NUM_PATHS];
+    static dataSet new_path;
 
-    //
+    dataSet * rx_data = &(decode_list->path_list[bit_idx][path_idx]);
+    new_path.length = rx_data->length;
+
+    // get probabilities from top bit
     p0 = rx_data->probabilities[bit_idx].prob0;
     p1 = rx_data->probabilities[bit_idx].prob1;
-    if (decode_list->paths_in_use[bit_pair_idx] > 0)
+#ifdef DEBUG
+    printf("TOP BIT (bit_idx %d, path_idx %d):\n", bit_idx, path_idx);
+    printDataSet(rx_data);
+    printf("\n");
+#endif
+    // we expect every bit should have at least 1 path. we copy the active paths
+    // so that we only iterate over the ones that are active when we entered the function
+    copyPathActiveArray(path_active_copy,
+                        decode_list->path_active[bit_pair_idx],
+                        decode_list->list_size);
+    for (int curr_path = 0; curr_path < bit_pair_probs->length; curr_path++)
     {
-        for (int curr_path = 0; curr_path < decode_list->list_size; curr_path++)
-        {
-            if (decode_list->path_active[bit_pair_idx][curr_path] == true)
+
+#ifdef DEBUG
+            printf("index %d (branch width %d), path %d!\n",
+                   bit_idx,
+                   abs(bit_idx - bit_pair_idx),
+                   curr_path);
+#endif
+            bit_pair_path = &(decode_list->path_list[bit_pair_idx][curr_path]);
+#ifdef DEBUG
+            printf("BOTTOM BIT (bit_idx %d, path_idx %d):\n", bit_pair_idx, curr_path);
+            //printDataSet(bit_pair_path);
+#endif
+            q0 = bit_pair_probs->probabilities[curr_path].prob0;
+            q1 = bit_pair_probs->probabilities[curr_path].prob1;
+#ifdef DEBUG
+            printf("\tp0 = %g, p1 = %g, q0 = %g, q1 = %g\n",
+                   p0,
+                   p1,
+                   q0,
+                   q1);
+            printf("\n");
+#endif
+            a0 = (p0 * q0) + (p1 * q1);
+            a1 = (p0 * q1) + (p1 * q0);
+
+            if (a0 > a1)
             {
-                bit_pair_path = &(decode_list->path_list[bit_pair_idx][curr_path]);
-
-                q0 = bit_pair_path->probabilities[bit_pair_idx].prob0;
-                q1 = bit_pair_path->probabilities[bit_pair_idx].prob1;
-
-                a0 = (p0 * q0) + (p1 * q1);
-                a1 = (p0 * q1) + (p1 * q0);
-
-                if (rx_data->probabilities[bit_idx].prob0 > rx_data->probabilities[bit_idx].prob1)
-                {
-                    a0_greaterthan_a1 = true;
-            #ifdef NORMALIZE
-                    normalizer = rx_data->probabilities[bit_idx].prob0;
-            #else
-                    normalizer = 1.0;
-            #endif
-                }
-                else
-                {
-                    a0_greaterthan_a1 = false;
-            #ifdef NORMALIZE
-                    normalizer = rx_data->probabilities[bit_idx].prob1;
-            #else
-                    normalizer = 1.0;
-            #endif
-                }
-
-                // normalize probabilities for a, the top bit
-                rx_data->probabilities[bit_idx].prob0 = a0/normalizer;
-                rx_data->probabilities[bit_idx].prob1 = a1/normalizer;
-                bit_pair_path->probabilities[bit_idx].prob0 = a0/normalizer;
-                bit_pair_path->probabilities[bit_idx].prob1 = a1/normalizer;
-
-                // calculate and normalize probabilities for all possible branches of b;
-                b_prob0_a0 = (p0 * q0)/normalizer;
-                b_prob1_a0 = (p1 * q1)/normalizer;
-                b_prob0_a1 = (p1 * q0)/normalizer;
-                b_prob1_a1 = (p0 * q1)/normalizer;
-
-                if (decode_list->paths_in_use[bit_pair_idx] == decode_list->list_size)
-                {
-                    if (a0_greaterthan_a1)
-                    {
-                        // split off the path for when the top bit goes with 0
-                        rx_data->probabilities[bit_pair_idx].prob0 = b_prob0_a0;
-                        rx_data->probabilities[bit_pair_idx].prob1 = b_prob1_a0;
-
-                        addToDecodeList(rx_data, bit_pair_idx, curr_path, decode_list);
-                    }
-                    else
-                    {
-                        // split off the path for when the top bit goes with 1
-                        rx_data->probabilities[bit_pair_idx].prob0 = b_prob0_a1;
-                        rx_data->probabilities[bit_pair_idx].prob1 = b_prob1_a1;
-
-                        addToDecodeList(rx_data, bit_pair_idx, curr_path, decode_list);
-                    }
-                }
-                else
-                {
-                    // split off the path for when the top bit goes with 0
-                    rx_data->probabilities[bit_pair_idx].prob0 = b_prob0_a0;
-                    rx_data->probabilities[bit_pair_idx].prob1 = b_prob1_a0;
-
-                    addToDecodeList(rx_data, bit_pair_idx, curr_path, decode_list);
-
-                    // split off the path for when the top bit goes with 1
-                    rx_data->probabilities[bit_pair_idx].prob0 = b_prob0_a1;
-                    rx_data->probabilities[bit_pair_idx].prob1 = b_prob1_a1;
-
-                    addToDecodeList(rx_data, bit_pair_idx, curr_path, decode_list);
-
-                    removePath(bit_pair_idx, curr_path, decode_list);
-                }
+                a0_greaterthan_a1 = true;
+        #ifdef NORMALIZE
+                normalizer = a0;
+        #else
+                normalizer = 1.0;
+        #endif
+            }
+            else
+            {
+                a0_greaterthan_a1 = false;
+        #ifdef NORMALIZE
+                normalizer = a1;
+        #else
+                normalizer = 1.0;
+        #endif
             }
 
-        }
-    }
-    else
-    {
-        bit_pair_path = rx_data;
-                q0 = bit_pair_path->probabilities[bit_pair_idx].prob0;
-                q1 = bit_pair_path->probabilities[bit_pair_idx].prob1;
+            // normalize probabilities for a, the top bit
+            rx_data->probabilities[bit_idx].prob0 = a0/normalizer;
+            rx_data->probabilities[bit_idx].prob1 = a1/normalizer;
+            //bit_pair_path->probabilities[bit_idx].prob0 = a0/normalizer;
+            //bit_pair_path->probabilities[bit_idx].prob1 = a1/normalizer;
 
-                a0 = (p0 * q0) + (p1 * q1);
-                a1 = (p0 * q1) + (p1 * q0);
 
-                if (rx_data->probabilities[bit_idx].prob0 > rx_data->probabilities[bit_idx].prob1)
-                {
-                    a0_greaterthan_a1 = true;
-            #ifdef NORMALIZE
-                    normalizer = rx_data->probabilities[bit_idx].prob0;
-            #else
-                    normalizer = 1.0;
-            #endif
-                }
-                else
-                {
-                    a0_greaterthan_a1 = false;
-            #ifdef NORMALIZE
-                    normalizer = rx_data->probabilities[bit_idx].prob1;
-            #else
-                    normalizer = 1.0;
-            #endif
-                }
+            // copy the newly calculated values into the path array for the top bit
+            if (decode_list->paths_in_use[bit_idx] < decode_list->list_size)
+            {
+                addToDecodeList(rx_data, bit_idx, path_idx, decode_list);
+                removePath(bit_idx, path_idx, decode_list);
+            }
+            else
+            {
+                addToDecodeList(rx_data, bit_idx, path_idx, decode_list);
+            }
 
-                // normalize probabilities for a, the top bit
-                rx_data->probabilities[bit_idx].prob0 = a0/normalizer;
-                rx_data->probabilities[bit_idx].prob1 = a1/normalizer;
-                bit_pair_path->probabilities[bit_idx].prob0 = a0/normalizer;
-                bit_pair_path->probabilities[bit_idx].prob1 = a1/normalizer;
 
-                // calculate and normalize probabilities for all possible branches of b;
-                b_prob0_a0 = (p0 * q0)/normalizer;
-                b_prob1_a0 = (p1 * q1)/normalizer;
-                b_prob0_a1 = (p1 * q0)/normalizer;
-                b_prob1_a1 = (p0 * q1)/normalizer;
-
-                if (decode_list->paths_in_use[bit_pair_idx] == decode_list->list_size)
-                {
-                    if (a0_greaterthan_a1)
-                    {
-                        // split off the path for when the top bit goes with 0
-                        rx_data->probabilities[bit_pair_idx].prob0 = b_prob0_a0;
-                        rx_data->probabilities[bit_pair_idx].prob1 = b_prob1_a0;
-
-                        addToDecodeList(rx_data, bit_pair_idx, 0, decode_list);
-                    }
-                    else
-                    {
-                        // split off the path for when the top bit goes with 1
-                        rx_data->probabilities[bit_pair_idx].prob0 = b_prob0_a1;
-                        rx_data->probabilities[bit_pair_idx].prob1 = b_prob1_a1;
-
-                        addToDecodeList(rx_data, bit_pair_idx, 0, decode_list);
-                    }
-                }
-                else
+            // calculate and normalize probabilities for all possible branches of b;
+            b_prob0_a0 = (p0 * q0)/normalizer;
+            b_prob1_a0 = (p1 * q1)/normalizer;
+            b_prob0_a1 = (p1 * q0)/normalizer;
+            b_prob1_a1 = (p0 * q1)/normalizer;
+#ifdef DEBUG
+            printf("\tbit_idx %d, path %d: a0 = %g, a1 = %g\n",
+                   bit_idx,
+                   path_idx,
+                   a0,
+                   a1);
+            printf("\tbit_pair_idx %d, path %d: b_prob0_a0 = %g, b_prob1_a0 = %g\n",
+                   bit_pair_idx,
+                   curr_path,
+                   b_prob0_a0,
+                   b_prob1_a0);
+            printf("\tbit_pair_idx %d, path %d: b_prob0_a1 = %g, b_prob1_a1 = %g\n",
+                   bit_pair_idx,
+                   curr_path,
+                   b_prob0_a1,
+                   b_prob1_a1);
+#endif
+            if (decode_list->paths_in_use[bit_pair_idx] == decode_list->list_size)
+            {
+                if (a0_greaterthan_a1)
                 {
                     // split off the path for when the top bit goes with 0
-                    rx_data->probabilities[bit_pair_idx].prob0 = b_prob0_a0;
-                    rx_data->probabilities[bit_pair_idx].prob1 = b_prob1_a0;
-
-                    addToDecodeList(rx_data, bit_pair_idx, 0, decode_list);
-
-                    // split off the path for when the top bit goes with 1
-                    rx_data->probabilities[bit_pair_idx].prob0 = b_prob0_a1;
-                    rx_data->probabilities[bit_pair_idx].prob1 = b_prob1_a1;
-
-                    addToDecodeList(rx_data, bit_pair_idx, 0, decode_list);
-
-                    //removePath(bit_pair_idx, curr_path, decode_list);
+                    new_path.probabilities[bit_pair_idx].prob0 = b_prob0_a0;
+                    new_path.probabilities[bit_pair_idx].prob1 = b_prob1_a0;
+                    addToDecodeList(&new_path, bit_pair_idx, curr_path, decode_list);
+                    /*
+                    bit_pair_path->probabilities[bit_pair_idx].prob0 = b_prob0_a0;
+                    bit_pair_path->probabilities[bit_pair_idx].prob1 = b_prob1_a0;
+                    */
                 }
+                else
+                {
+                    // split off the path for when the top bit goes with 1
+                    new_path.probabilities[bit_pair_idx].prob0 = b_prob0_a1;
+                    new_path.probabilities[bit_pair_idx].prob1 = b_prob1_a1;
+                    addToDecodeList(bit_pair_path, bit_pair_idx, curr_path, decode_list);
+                    /*
+                    bit_pair_path->probabilities[bit_pair_idx].prob0 = b_prob0_a1;
+                    bit_pair_path->probabilities[bit_pair_idx].prob1 = b_prob1_a1;
+                    */
+                }
+                //addToDecodeList(bit_pair_path, bit_pair_idx, curr_path, decode_list);
+                addToDecodeList(&new_path, bit_pair_idx, curr_path, decode_list);
+            }
+            else
+            {
+                // split off the path for when the top bit goes with 0
+                new_path.probabilities[bit_pair_idx].prob0 = b_prob0_a0;
+                new_path.probabilities[bit_pair_idx].prob1 = b_prob1_a0;
+                addToDecodeList(&new_path, bit_pair_idx, curr_path, decode_list);
+                /*
+                bit_pair_path->probabilities[bit_pair_idx].prob0 = b_prob0_a0;
+                bit_pair_path->probabilities[bit_pair_idx].prob1 = b_prob1_a0;
+
+                addToDecodeList(bit_pair_path, bit_pair_idx, curr_path, decode_list);
+                */
+
+                // split off the path for when the top bit goes with 1
+                new_path.probabilities[bit_pair_idx].prob0 = b_prob0_a0;
+                new_path.probabilities[bit_pair_idx].prob1 = b_prob1_a0;
+                addToDecodeList(&new_path, bit_pair_idx, curr_path, decode_list);
+                /*
+                bit_pair_path->probabilities[bit_pair_idx].prob0 = b_prob0_a1;
+                bit_pair_path->probabilities[bit_pair_idx].prob1 = b_prob1_a1;
+                */
+                /*
+                if (decode_list->paths_in_use[bit_pair_idx] < decode_list->list_size)
+                {
+                    addToDecodeList(bit_pair_path, bit_pair_idx, curr_path, decode_list);
+                    removePath(bit_pair_idx, curr_path, decode_list);
+                }
+                else
+                {
+                    addToDecodeList(bit_pair_path, bit_pair_idx, curr_path, decode_list);
+                }
+                */
+            }
     }
-
-
-
 }
 
 void decodeListPolarData(dataSet * rx_data, bitSet * decoded_bits, int list_size)
 {
-    printf("here2\n");
     int U_pair_iter = 0;
     int U_iter_inc = 0;
 
     int best_path_idx = 0;
+    static bool path_active_copy[MAX_NUM_PATHS];
+    static probSet bit_pair_probs;
 
     decodeList decode_list;
-    initDecodeList(rx_data->length, list_size, &decode_list);
+    initDecodeList(rx_data, list_size, &decode_list);
 
-    dataSet * current_path;
+    //dataSet * current_path;
 
     decoded_bits->length = rx_data->length;
 
@@ -445,42 +446,53 @@ void decodeListPolarData(dataSet * rx_data, bitSet * decoded_bits, int list_size
     {
         U_pair_iter = 0;
         U_iter_inc = i << 1;
+#ifdef DEBUG
         printf("i = %d\n", i);
+#endif
         for (int U_iter = 0; U_iter < rx_data->length; U_iter += U_iter_inc)
         {
+#ifdef DEBUG
             printf("\tU_iter = %d\n", U_iter);
+#endif
             for (U_pair_iter = U_iter; U_pair_iter < U_iter + i; U_pair_iter++)
             {
-                printf("\t\tU_pair_iter = %d\n", U_pair_iter);
 #ifdef DEBUG
+                printf("\t\tU_pair_iter = %d\n", U_pair_iter);
                 printf("XORing index %d into index %d\n", U_pair_iter + i, U_pair_iter);
 #endif
 
                 if (decode_list.paths_in_use[U_pair_iter] == 0)
                 {
 #ifdef DEBUG
-                    printf("index %d (branch width %d) has no paths in use!\n", U_pair_iter, i);
+                    printf("SHOUD NEVER HAPPEN index %d (branch width %d) has no paths in use!\n", U_pair_iter, i);
 #endif
-                    splitPathAndAddToDecodeList(rx_data, U_pair_iter, U_pair_iter+i, &decode_list);
+                    splitPathAndAddToDecodeList(0, U_pair_iter, U_pair_iter+i, &bit_pair_probs, &decode_list);
                 }
                 else
                 {
+                    copyPathActiveArray(path_active_copy,
+                                        decode_list.path_active[U_pair_iter],
+                                        decode_list.list_size);
+                    dumpPathsToProbSetArrayAndClear(&decode_list, U_pair_iter+i, &bit_pair_probs);
                     for (int path_idx = 0; path_idx < decode_list.list_size; path_idx++)
                     {
                         // explore the path if it's active
-                        if (decode_list.path_active[U_pair_iter][path_idx] == true)
+                        if (path_active_copy[path_idx] == true)
                         {
 #ifdef DEBUG
-                            printf("index %d (branch width $d) has path %d active!\n", U_pair_iter, path_idx);
+                            printf("index %d (branch width %d) has path %d active!\n", U_pair_iter, i, path_idx);
 #endif
-                            current_path = &(decode_list.path_list[U_pair_iter][path_idx]);
-                            splitPathAndAddToDecodeList(current_path, U_pair_iter, U_pair_iter+i, &decode_list);
-                            removePath(U_pair_iter, path_idx, &decode_list);
+                            //current_path = &(decode_list.path_list[U_pair_iter][path_idx]);
+                            splitPathAndAddToDecodeList(path_idx, U_pair_iter, U_pair_iter+i, &bit_pair_probs, &decode_list);
+                            //removePath(U_pair_iter, path_idx, &decode_list);
                         }
                     }
                 }
             }
         }
+#ifdef DEBUG
+        printf("\n");
+#endif
     }
 
     for (int i = 0; i < rx_data->length; i++)
