@@ -168,9 +168,10 @@ void initDecodeList(dataSet * initial_rx_data, int list_size, decodeList * decod
     for (int i = 0; i < num_bits; i++)
     {
         // always start with the first path active: the initial dataSet
-        copyDataSet(&(decode->path_list[i][0]), initial_rx_data);
+        decode->path_list[i][0] = initial_rx_data->probabilities[i];
         decode->paths_in_use[i] = 1;
         decode->path_active[i][0] = true;
+        decode->is_frozen[i] = initial_rx_data->is_frozen[i];
         for (int j = 1; j < list_size; j++)
         {
             decode->path_active[i][j] = false;
@@ -192,6 +193,17 @@ void copyDataSet(dataSet * dest, dataSet * src)
     }
 }
 
+// function for deep copying a binaryProb array
+void copyBinaryProbArray(binaryProb * dest, binaryProb * src, int length)
+{
+    for (int i = 0; i < length; i++)
+    {
+        dest[i].llr = src[i].llr;
+        dest[i].prob0 = src[i].prob0;
+        dest[i].prob1 = src[i].prob1;
+    }
+}
+
 void copyPathActiveArray(bool * dest, bool * src, int length)
 {
     for (int i = 0; i < length; i++)
@@ -200,14 +212,14 @@ void copyPathActiveArray(bool * dest, bool * src, int length)
     }
 }
 
-void dumpPathsToProbSetArrayAndClear(decodeList * decode_list, int bit_idx, probSet * probs)
+void dumpPathsToProbSetAndClear(decodeList * decode_list, int bit_idx, probSet * probs)
 {
     int prob_idx = 0;
     for (int i = 0; i < decode_list->list_size; i++)
     {
         if (decode_list->path_active[bit_idx][i] == true)
         {
-            probs->probabilities[prob_idx] = decode_list->path_list[bit_idx][i].probabilities[bit_idx];
+            probs->probabilities[prob_idx] = decode_list->path_list[bit_idx][i];
             decode_list->path_active[bit_idx][i] = false;
             prob_idx++;
         }
@@ -242,7 +254,7 @@ void transmitBitsOverAwgn(double snr_db, bitSet * bits_x, dataSet * data_y)
 
     for (int i = 0; i < bits_x->length; i++)
     {
-#ifdef STATIC
+#ifdef STATIC_NOISE
         awgn_sample = std_dev / 2.0;
 #else
         awgn_sample = AWGN_generator() * std_dev;
@@ -301,7 +313,7 @@ void generateUBits(int length, int num_frozen_bits, bitSet * U_bits)
     int frozen_bit_count = 0;
     while (frozen_bit_count < num_frozen_bits)
     {
-#ifdef STATIC
+#ifdef STATIC_BITS
         rand_idx = frozen_bit_count;
 #else
         rand_idx = rand() % length;
@@ -317,7 +329,7 @@ void generateUBits(int length, int num_frozen_bits, bitSet * U_bits)
     {
         if (U_bits->is_frozen[i] == false)
         {
-#ifdef STATIC
+#ifdef STATIC_BITS
             U_bits->bits[i] = 0;
 #else
             U_bits->bits[i] = rand() % 2;
@@ -336,24 +348,26 @@ double calculateBER(bitSet * codeword, bitSet * senseword)
     double num_bits = (double)codeword->length;
     int num_errors = 0;
     double ber = 0;
-#ifdef BER_TESTING
+#ifdef BER_TESTING_PRINT
     printf("\nbits in error: ");
 #endif
     for (int i = 0; i < codeword->length; i++)
     {
         if (codeword->bits[i] != senseword->bits[i])
         {
-#ifdef BER_TESTING
+#ifdef BER_TESTING_PRINT
             printf("%d ", i);
 #endif
             num_errors++;
         }
     }
-#ifdef BER_TESTING
+#ifdef BER_TESTING_PRINT
             printf("\n");
 #endif
     ber = ((double)num_errors)/num_bits;
+#ifdef BER_TESTING_PRINT
     printf("BER is: %g\n", ber);
+#endif
     return ber;
 }
 
@@ -429,7 +443,30 @@ void simulateListPolarBERCurve(int snr_start, int snr_end, int num_bits, int lis
     }
 }
 
+void simulateMultiListPolarBERCurve(int snr_start, int snr_end, int num_bits, int max_list_size)
+{
+    int num_points = 0;
+    double snrs[MAX_NUM_BITS];
+    double bers[MAX_NUM_BITS];
+    printf("\nSNRs: [");
+    for (double snr = snr_start; snr <= snr_end; snr = snr + 0.25)
+    {
+        snrs[num_points] = snr;
+        printf("%g%s", snr, (snr + 0.25 > snr_end) ? "]\n" : ", ");
+        num_points++;
+    }
+    for (int list_size = 1; list_size <= max_list_size; list_size <<= 1)
+    {
+        printf("\nList size: %d", list_size);
+        printf("\nBERs: [");
+        for (int i = 0; i < num_points; i++)
+        {
+            bers[i] = simulateListPolarBER(snrs[i], num_bits, list_size);
+            printf("%g%s", bers[i], (i + 1 >= num_points) ? "]\n" : ", ");
+        }
+    }
 
+}
 
 
 

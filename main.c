@@ -50,9 +50,23 @@ int main()
 
     //printf("\ndecoded bits:");
     //printBitSet(&decoded_bits);
-
-    //simulatePolarBERCurve(1, 10, MAX_NUM_BITS);
-    //simulatePolarBER(2, MAX_NUM_BITS);
-    simulateListPolarBER(2, MAX_NUM_BITS, 2);
+    /*
+    printf("TESTING SC vs SCL, BIT SIZE %d, SNR %g dB\n", MAX_NUM_BITS, TEST_SNR);
+    printf("Running normal SC decoder...\n");
+    simulatePolarBERCurve(0.5, 3, MAX_NUM_BITS);
+    printf("\n\nRunning list SC decoder...\n");
+    */
+    simulateMultiListPolarBERCurve(1, 3, MAX_NUM_BITS, MAX_NUM_PATHS);
+    /*
+    printf("\n\nRunning list SC decoder with list size %d...\n", MAX_NUM_PATHS);
+    simulateListPolarBERCurve(1, 10, MAX_NUM_BITS, MAX_NUM_PATHS);
+    */
+    /*
+    printf("TESTING SC vs SCL, BIT SIZE %d, SNR %g dB\n", MAX_NUM_BITS, TEST_SNR);
+    printf("Running normal SC decoder...\n");
+    simulatePolarBER(TEST_SNR, MAX_NUM_BITS);
+    printf("\nRunning list SC decoder with list size %d...\n", MAX_NUM_PATHS);
+    simulateListPolarBER(TEST_SNR, MAX_NUM_BITS, MAX_NUM_PATHS);
+    */
     return 0;
 }

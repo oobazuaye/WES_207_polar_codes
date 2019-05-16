@@ -22,13 +22,15 @@ obosa obazuaye, 2019
  ******************/
 #define PI 3.1415926536
 #define M_SQRT1_2 0.70710678118654752440
-#define MAX_NUM_BITS 1024
-#define MAX_NUM_PATHS 2
+#define MAX_NUM_BITS 2048
+#define MAX_NUM_PATHS 32
+#define TEST_SNR 4.0
 //#define DEBUG
-#define BER_TESTING
+//#define BER_TESTING_PRINT
 //#define NORMALIZE
 
-#define STATIC
+#define STATIC_BITS
+#define STATIC_NOISE
 #define PRUNING_PARAMETER_MIN_LIST_LIKELIHOOD 0.1
 #define USE_PRUNING_PARAMETR
 
@@ -79,11 +81,11 @@ typedef struct activePath
 
 typedef struct decodeList
 {
-    dataSet path_list[MAX_NUM_BITS][MAX_NUM_PATHS];
+    binaryProb path_list[MAX_NUM_BITS][MAX_NUM_PATHS];
+    bool is_frozen[MAX_NUM_BITS];
     int num_bits;
     int list_size;
     bool path_active[MAX_NUM_BITS][MAX_NUM_PATHS];
-    //activePath path_active[MAX_NUM_BITS][MAX_NUM_PATHS];
     int paths_in_use[MAX_NUM_BITS];
 } decodeList;
 
@@ -105,7 +107,7 @@ void printProbSet(probSet * probs_to_print);
 void copyDataSet(dataSet * dest, dataSet * src);
 void copyPathActiveArray(bool * dest, bool * src, int length);
 void copyActivePathArray(bool * dest, bool * src, int length);
-void dumpPathsToProbSetArrayAndClear(decodeList * decode_list, int bit_idx, probSet * probs);
+void dumpPathsToProbSetAndClear(decodeList * decode_list, int bit_idx, probSet * probs);
 
 void initBitSet(unsigned int * bits, unsigned int length, bitSet * bit_set);
 void initUBits(bitSet * data_bits, bitSet * frozen_bits, bitSet * U_bits);
@@ -127,6 +129,7 @@ double simulatePolarBER(double snr_db, int num_bits);
 void simulatePolarBERCurve(int snr_start, int snr_end, int num_bits);
 double simulateListPolarBER(double snr_db, int num_bits, int list_size);
 void simulateListPolarBERCurve(int snr_start, int snr_end, int num_bits, int list_size);
+void simulateMultiListPolarBERCurve(int snr_start, int snr_end, int num_bits, int max_list_size);
 
 // polar_encode.c
 void encodePolarDataV1(bitSet * data_bits, bitSet * frozen_bits, bitSet * encoded_bits);
@@ -134,7 +137,7 @@ void encodePolarDataV2(bitSet * data_bits, bitSet * frozen_bits, bitSet * encode
 void encodePolarData(bitSet * U_bits, bitSet * encoded_bits);
 
 // polar_decode.c
-void addToDecodeList(dataSet * rx_data, int bit_idx, int path_idx, decodeList * decode_list);
+void addToDecodeList(binaryProb * bit_probs, int bit_idx, int path_idx, decodeList * decode_list);
 void splitPathAndAddToDecodeList(int path_idx, int bit_idx, int bit_pair_idx, probSet * bit_pair_probs, decodeList * decode_list);
 void decodePolarData(dataSet * rx_data, bitSet * decoded_bits);
 void decodeListPolarData(dataSet * rx_data, bitSet * decoded_bits, int list_size);
