@@ -15,7 +15,7 @@ in other words, the goal is that if you want to learn polar codes, and you have 
    
  - polar_codes_hdl/ contains my SystemVerilog and VHDL implementations of the polar encoder and SC decoder, respectively
 
- - polar_codes_hls/ contains my HLS implementation of an encoder and SC decoder for a 32-bit long polar code, for use on the PYNQ platform
+ - polar_codes_hls/ contains my HLS implementation of an encoder and SC decoder for a 32-bit long polar code, for use on the PYNQ platform for demonstration purposes
 
 ## Other Resources
  - the lecture given by Arikan himself, the creator of polar codes: 
