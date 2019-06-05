@@ -22,6 +22,6 @@ in other words, the goal is that if you want to learn polar codes, and you have 
    - youtube video playlist: https://www.youtube.com/playlist?list=PLhAAV-jkgAdxWxAhFLxrcKJFXOzR6zqzb
    - slides: http://www2.egr.uh.edu/~zhan2/ECE6332/slidesarikan.pdf
    
- - the UCSD polar codes research group led by Alex Vardy has a fantastic paper on how to implement polar codes. it's pretty much the only paper i can recommend at an entry level (it also includes discussion of how to use a CRC to further optimize the list decoder): https://arxiv.org/pdf/1206.0050.pdf
+ - the UCSD polar codes research group led by Alex Vardy has a fantastic paper on how to implement polar code decoders. it's pretty much the only paper i can recommend at an entry level (it also includes discussion of how to use a CRC to further optimize the list decoder): https://arxiv.org/pdf/1206.0050.pdf
 
  - for an advanced look at decoders, i found this paper particularly useful for introducing various algorithms for further optimizing the list decoder (without the use of a CRC): https://arxiv.org/abs/1208.3598
