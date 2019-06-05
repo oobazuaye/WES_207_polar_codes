@@ -4,7 +4,7 @@ polar codes implementations for UCSD WES 207 capstone
 ## Purpose 
 this repository contains several different implementations of the basic encoder and successive cancellation decoder for polar codes, as well as utilities for generating bits and also simulating an AWGN channel through which to use these codes and observe their performance. 
 
-this is all done as a means of easily learning and understanding how polar codes work, after having spent many weeks myself trying to understand the myriad of abstrusely written research papers on polar codes. these implementations include one in Python, C, HDL (SystemVerilog for the encoder, VHDL for the decoder), and Vivado HLS C, and each one has its own unique features and nuances.
+this is all done as a means of easily learning and understanding how polar codes work, after having spent many weeks myself trying to understand the myriad of abstrusely written research papers on polar codes. these implementations include one in Python, C, HDL (SystemVerilog for the encoder, VHDL for the decoder), Vivado HLS C, and even a notebook for use on the Xilinx PYNQ platform. each implementation has its own unique features and nuances, further documented below (and even more within the code itself)
 
 in other words, the goal is that if you want to learn polar codes, and you have a reasonable grasp on software, you can use this repository to be able to quickly understand polar codes and implement them yourself!
 
