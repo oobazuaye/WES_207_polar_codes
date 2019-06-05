@@ -10,12 +10,12 @@ in other words, the goal is that if you want to learn polar codes, and you have 
 
 ## Directory Structure
  - polar_codes_software/ contains my C and Python libraries/implementations of polar encoders and decoders
-   - the python library includes code for monte carlo frozen bit selection, and a function for drawing the XOR lattice in encoders
-   - the C code contains a first pass at an implementation of the list successive cancellation decoder decoder. it will be updated and optimized in the future.
+   - the python library includes code for monte carlo frozen bit selection, and a function for making a drawing/rendering of the XOR lattice of encoders in Python's Turtle graphics 
+   - the C code contains a first pass at an implementation of the list successive cancellation decoder decoder. it will be further updated and optimized in the future.
    
  - polar_codes_hdl/ contains my SystemVerilog and VHDL implementations of the polar encoder and SC decoder, respectively
 
- - polar_codes_hls/ contains my HLS implementation of an encoder and SC decoder for a 32-bit long polar code
+ - polar_codes_hls/ contains my HLS implementation of an encoder and SC decoder for a 32-bit long polar code, for use on the PYNQ platform
 
 ## Other Resources
  - the lecture given by Arikan himself, the creator of polar codes: 
