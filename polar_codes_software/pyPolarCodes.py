@@ -1,13 +1,14 @@
-# pyPolarCodes.py
+# py3PolarCodes.py
 # obosa obazuaye, 2019
 # polar code utilities and simulations in python
-
+from __future__ import print_function
 import math
 import turtle
 import numpy
 import random
 
-MONTE_CARLO_ITERATIONS = 10**6
+
+MONTE_CARLO_ITERATIONS = 10**6 # the literature uses 10**7, but that takes too long to run in Python
 ITERATION_COUNTER_MOD = 10**4
 codeDraw = 0
 
@@ -15,7 +16,7 @@ codeDraw = 0
 def randomBits(length, print_bits=False):
     bits = [random.randint(0, 1) for num in range(length)]
     if print_bits:
-        print ''.join([str(bit) for bit in bits])
+        print(''.join([str(bit) for bit in bits]))
     return bits
 
 # takes a given array of bits,
@@ -29,7 +30,7 @@ def randomFrozenBitSelection(data):
 def randomDataBitsWithFrozenBits(length, frozen_bits, print_bits=False):
     bits = [0 if frozen_bits[idx] else random.randint(0, 1) for idx in range(length)]
     if print_bits:
-        print ''.join([str(bit) for bit in bits])
+        print(''.join([str(bit) for bit in bits]))
     return bits
 
 # converts an array of bit error ratios into an array of frozen bits
@@ -46,8 +47,8 @@ def converPErrToFrozenBits(p_errs, num_frozen_bits):
 # uses the global variable MONTE_CARLO_ITERATIONS defined at the top of the file
 def determineAwgnFrozenBits(code_length, num_frozen_bits, snr):
     bit_errs = [0] * code_length
-    print "running for " + str(MONTE_CARLO_ITERATIONS) + " iterations!"
-    print "iteration number ",
+    print("running for " + str(MONTE_CARLO_ITERATIONS) + " iterations!")
+    print("iteration number ", end=' ')
     for iteration in range(MONTE_CARLO_ITERATIONS):
         data = randomBits(code_length)
         encoded_data = polarEncodeSimple(data)
@@ -55,10 +56,10 @@ def determineAwgnFrozenBits(code_length, num_frozen_bits, snr):
         for bit_idx in range(code_length):
             bit_errs[bit_idx] += decoded_data[bit_idx] != data[bit_idx]
         if iteration % ITERATION_COUNTER_MOD == 0:
-            print iteration, 
+            print(iteration, end=' ')
     p_errs = [num_errs / (1.0 * MONTE_CARLO_ITERATIONS) for num_errs in bit_errs]
-    print
-    print p_errs
+    print()
+    print(p_errs)
     frozen_bits = converPErrToFrozenBits(p_errs, num_frozen_bits)
     return frozen_bits
 
@@ -85,7 +86,7 @@ def polarEncodeDraw(data, draw=False):
     remainder = math.modf(log2_result)[0]
     
     if remainder != 0.0:
-        print "Length of data is not power of 2!"
+        print("Length of data is not power of 2!")
         return
 
     #create variables that will be referenced whether or not we draw
@@ -100,7 +101,7 @@ def polarEncodeDraw(data, draw=False):
         try:
             drawScreen.bye()
         except:
-            print "turtle window already closed!"
+            print("turtle window already closed!")
     else:
         #calculate ratios of the diagram based on number of elements
         channelSpacing = drawScreen.window_height() / n
@@ -210,7 +211,7 @@ def polarEncodeSimple(data):
     remainder = math.modf(log2_result)[0]
     
     if remainder != 0.0:
-        print "Length of data is not power of 2!"
+        print("Length of data is not power of 2!")
         return
 
     branches = range(int(log2_result))
@@ -247,6 +248,21 @@ def awgnChannelSimulation(snr_db, data):
     noise = [numpy.random.randn() * sigma for bit in data]
     return [bpsk[idx] + noise[idx] for idx in range(len(bpsk))]
 
+# converts an array of data bits into two arrays of likelihood values post-channel
+# (i.e., the probabilities calculated after receiving the post-channel bits)
+# output[0] is the probability of 0 for each bit,
+# output[1] is the probability of 1 for each bit
+def awgnChannelProbabilities(snr_db, data):
+    data_through_channel = awgnChannelSimulation(snr_db, data)
+    sigma = snrToSigma(snr_db)
+    p0 = []
+    p1 = []
+    for bit_idx in range(len(data)):
+        probs = probCalc(sigma, data_through_channel[bit_idx])
+        p0.append(probs[0])
+        p1.append(probs[1])
+    return p0, p1
+		
 # draws the decoder of the polar code
 # (currently not completely implemented)
 def polarDecodeDraw(data, frozen_bits, snr, draw=False):
@@ -255,16 +271,13 @@ def polarDecodeDraw(data, frozen_bits, snr, draw=False):
     remainder = math.modf(log2_result)[0]
     
     if remainder != 0.0:
-        print "Length of data is not power of 2!"
+        print("Length of data is not power of 2!")
         return
     
     branches = list(reversed(range(int(log2_result))))
     
-    sigma = snrToSigma(snr)
-    decodeArray = []
-    for bit_idx in range(n):
-        probs = probCalc(sigma, data[bit_idx])
-        decodeArray.append({'p0': probs[0], 'p1': probs[1], 'is_frozen': frozen_bits[bit_idx]})
+    probs = awgnChannelProbabilities(snr, data)
+    decodeArray = [{'p0': probs[0][bit_idx], 'p1': probs[1][bit_idx], 'is_frozen': frozen_bits[bit_idx]} for bit_idx in range(n)]
 
 
     #create variables that will be referenced whether or not we draw
@@ -292,7 +305,7 @@ def polarDecodeDraw(data, frozen_bits, snr, draw=False):
 
     
     for pair_dist in [2**x for x in branches]:
-        print pair_dist
+        print(pair_dist)
         y_pos = initialY
         x_start += branchSpacing #increment x starting point by which branch we're on
         orig_x_start = x_start #save off original x starting point for this branch in case we need to nudge stuff over for overlapping XORs
@@ -310,21 +323,21 @@ def polarDecodeDraw(data, frozen_bits, snr, draw=False):
                 b = decodeArray[pair_idx]
                 a0 = (a['p0'] * b['p0']) + (a['p1'] * b['p1'])
                 a1 = (a['p1'] * b['p0']) + (a['p0'] * b['p1'])
-                print a0
-                print a1
+                print(a0)
+                print(a1)
                 if a0 > a1:
-                    normalize = a0
+                    normalizer = a0
                     b0 = a['p0'] * b['p0']
                     b1 = a['p1'] * b['p1']
                 else:
-                    normalize = a1
+                    normalizer = a1
                     b0 = a['p1'] * b['p0']
                     b1 = a['p0'] * b['p1']
-                #print normalize
-                a['p0'] = a0 / normalize
-                a['p1'] = a1 / normalize
-                b['p0'] = b0 / normalize
-                b['p1'] = b1 / normalize
+                #print(normalizer)
+                a['p0'] = a0 / normalizer
+                a['p1'] = a1 / normalizer
+                b['p0'] = b0 / normalizer
+                b['p1'] = b1 / normalizer
                 
                 if draw:
                     if True in is_paired[bit_idx:pair_idx]:
@@ -365,16 +378,16 @@ def polarDecodeSimple(probabilities_0, probabilities_1, frozen_bits, normalize=F
     remainder = math.modf(log2_result)[0]
     
     if remainder != 0.0:
-        print "Length of data is not power of 2!"
+        print("Length of data is not power of 2!")
         return
     
     try:
         drawScreen.bye()
     except:
-        print "turtle window already closed!"  
+        print("turtle window already closed!"  )
     branches = list(reversed(range(int(log2_result))))
     for pair_dist in [2**x for x in branches]:
-        #print pair_dist
+        #print(pair_dist)
         is_paired = [False] * n #create a pairing boolean array for easy determination of which channels need to be paired
         for bit_idx in range(0, n):
             if is_paired[bit_idx] is False:            
@@ -385,27 +398,30 @@ def polarDecodeSimple(probabilities_0, probabilities_1, frozen_bits, normalize=F
                 q1 = probabilities_1[pair_idx]
                 a0 = (p0 * q0) + (p1 * q1)
                 a1 = (p0 * q1) + (p1 * q0)
-                #print a0
-                #print a1
+                #print(a0)
+                #print(a1)
                 if a0 > a1:
-                    normalize = a0 if normalize else 1.0
+                    normalizer = a0 if normalize else 1.0
                     b0 = (p0 * q0)
                     b1 = (p1 * q1)
                 else:
-                    normalize = a1 if normalize else 1.0
+                    normalizer = a1 if normalize else 1.0
                     b0 = (p1 * q0)
                     b1 = (p0 * q1)
-                #print normalize
-                probabilities_0[bit_idx] = a0 / normalize
-                probabilities_1[bit_idx] = a1 / normalize
-                probabilities_0[pair_idx] = b0 / normalize
-                probabilities_1[pair_idx] = b1 / normalize
 
+                probabilities_0[bit_idx] = a0 / normalizer
+                probabilities_1[bit_idx] = a1 / normalizer
+                probabilities_0[pair_idx] = b0 / normalizer
+                probabilities_1[pair_idx] = b1 / normalizer
+
+                print("new p(bit_idx):", probabilities_0[bit_idx], probabilities_1[bit_idx])
+                print("new p(pair_idx):", probabilities_0[pair_idx], probabilities_1[pair_idx])
                 is_paired[bit_idx] = True
                 is_paired[pair_idx] = True
                 
     result = []
     for bit_idx in range(n):
+        print(probabilities_0[bit_idx], probabilities_1[bit_idx])
         if frozen_bits[bit_idx] or probabilities_0[bit_idx] > probabilities_1[bit_idx]:
             result.append(0)
         else:
@@ -423,7 +439,7 @@ def polarDecodeWithAwgnSimulation(data, frozen_bits, snr, normalize=False):
     remainder = math.modf(log2_result)[0]
     
     if remainder != 0.0:
-        print "Length of data is not power of 2!"
+        print("Length of data is not power of 2!")
         return
         
     branches = list(reversed(range(int(log2_result))))
@@ -432,7 +448,7 @@ def polarDecodeWithAwgnSimulation(data, frozen_bits, snr, normalize=False):
     decodeArray = []
     data_through_channel = awgnChannelSimulation(snr, data)
     for bit_idx in range(n):
-        probs = probCalc(sigma, data_through_channel[bit_idx], 0)
+        probs = probCalc(sigma, data_through_channel[bit_idx])
         decodeArray.append({'p0': probs[0], 'p1': probs[1], 'is_frozen': frozen_bits[bit_idx]})    
 
     #print [bit['p0'] for bit in decodeArray]
@@ -447,26 +463,26 @@ def polarDecodeWithAwgnSimulation(data, frozen_bits, snr, normalize=False):
                 b = decodeArray[pair_idx]
                 a0 = (a['p0'] * b['p0']) + (a['p1'] * b['p1'])
                 a1 = (a['p1'] * b['p0']) + (a['p0'] * b['p1'])
-                #print a0
-                #print a1
+                #print(a0)
+                #print(a1)
                 if a0 > a1:
-                    normalize = a0 if normalize else 1.0
+                    normalizer = a0 if normalize else 1.0
                     b0 = a['p0'] * b['p0']
                     b1 = a['p1'] * b['p1']
                 else:
-                    normalize = a1 if normalize else 1.0
+                    normalizer = a1 if normalize else 1.0
                     b0 = a['p1'] * b['p0']
                     b1 = a['p0'] * b['p1']
-                #print normalize
-                a['p0'] = a0 / normalize
-                a['p1'] = a1 / normalize
-                b['p0'] = b0 / normalize
-                b['p1'] = b1 / normalize
+                #print(normalizer)
+                a['p0'] = a0 / normalizer
+                a['p1'] = a1 / normalizer
+                b['p0'] = b0 / normalizer
+                b['p1'] = b1 / normalizer
                 
                 is_paired[bit_idx] = True
                 is_paired[pair_idx] = True
-    #print [bit['p0'] for bit in decodeArray]
-    #print [bit['p1'] for bit in decodeArray] 
+    #print([bit['p0'] for bit in decodeArray])
+    #print([bit['p1'] for bit in decodeArray])
     result = []
     for bit in decodeArray:
         if bit['is_frozen'] or bit['p0'] > bit['p1']:
