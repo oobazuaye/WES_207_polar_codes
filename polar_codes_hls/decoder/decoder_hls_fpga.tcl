@@ -20,7 +20,7 @@ set script_folder [_tcl::get_script_folder]
 ################################################################
 # Check if script is running in correct Vivado version.
 ################################################################
-set scripts_vivado_version 2018.2
+set scripts_vivado_version 2017.1
 set current_vivado_version [version -short]
 
 if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
@@ -48,7 +48,6 @@ if { $list_projs eq "" } {
 
 
 # CHANGE DESIGN NAME HERE
-variable design_name
 set design_name design_1
 
 # If you do not already have an existing IP Integrator design open,
@@ -116,42 +115,6 @@ if { $nRet != 0 } {
    return $nRet
 }
 
-set bCheckIPsPassed 1
-##################################################################
-# CHECK IPs
-##################################################################
-set bCheckIPs 1
-if { $bCheckIPs == 1 } {
-   set list_check_ips "\ 
-xilinx.com:ip:axi_dma:7.1\
-xilinx.com:ip:smartconnect:1.0\
-xilinx.com:hls:decodePolarData32:1.0\
-xilinx.com:ip:processing_system7:5.5\
-xilinx.com:ip:proc_sys_reset:5.0\
-"
-
-   set list_ips_missing ""
-   common::send_msg_id "BD_TCL-006" "INFO" "Checking if the following IPs exist in the project's IP catalog: $list_check_ips ."
-
-   foreach ip_vlnv $list_check_ips {
-      set ip_obj [get_ipdefs -all $ip_vlnv]
-      if { $ip_obj eq "" } {
-         lappend list_ips_missing $ip_vlnv
-      }
-   }
-
-   if { $list_ips_missing ne "" } {
-      catch {common::send_msg_id "BD_TCL-115" "ERROR" "The following IPs are not found in the IP Catalog:\n  $list_ips_missing\n\nResolution: Please add the repository containing the IP(s) to the project." }
-      set bCheckIPsPassed 0
-   }
-
-}
-
-if { $bCheckIPsPassed != 1 } {
-  common::send_msg_id "BD_TCL-1003" "WARNING" "Will not continue with creation of design due to the error(s) above."
-  return 3
-}
-
 ##################################################################
 # DESIGN PROCs
 ##################################################################
@@ -163,7 +126,6 @@ if { $bCheckIPsPassed != 1 } {
 proc create_root_design { parentCell } {
 
   variable script_folder
-  variable design_name
 
   if { $parentCell eq "" } {
      set parentCell [get_bd_cells /]
@@ -196,109 +158,107 @@ proc create_root_design { parentCell } {
 
   # Create ports
 
-  # Create instance: axi_dma_frozen_and_decode, and set properties
-  set axi_dma_frozen_and_decode [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dma:7.1 axi_dma_frozen_and_decode ]
+  # Create instance: axi_dma_frozen_decoded, and set properties
+  set axi_dma_frozen_decoded [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dma:7.1 axi_dma_frozen_decoded ]
   set_property -dict [ list \
-   CONFIG.c_include_sg {0} \
-   CONFIG.c_sg_include_stscntrl_strm {0} \
-   CONFIG.c_sg_length_width {26} \
- ] $axi_dma_frozen_and_decode
+CONFIG.c_include_sg {0} \
+CONFIG.c_sg_include_stscntrl_strm {0} \
+CONFIG.c_sg_length_width {23} \
+ ] $axi_dma_frozen_decoded
 
   # Create instance: axi_dma_p0, and set properties
   set axi_dma_p0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dma:7.1 axi_dma_p0 ]
   set_property -dict [ list \
-   CONFIG.c_include_s2mm {0} \
-   CONFIG.c_include_sg {0} \
-   CONFIG.c_sg_include_stscntrl_strm {0} \
-   CONFIG.c_sg_length_width {26} \
+CONFIG.c_include_s2mm {0} \
+CONFIG.c_include_sg {0} \
+CONFIG.c_sg_include_stscntrl_strm {0} \
+CONFIG.c_sg_length_width {23} \
  ] $axi_dma_p0
 
   # Create instance: axi_dma_p1, and set properties
   set axi_dma_p1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dma:7.1 axi_dma_p1 ]
   set_property -dict [ list \
-   CONFIG.c_include_s2mm {0} \
-   CONFIG.c_include_sg {0} \
-   CONFIG.c_sg_include_stscntrl_strm {0} \
-   CONFIG.c_sg_length_width {26} \
+CONFIG.c_include_s2mm {0} \
+CONFIG.c_include_sg {0} \
+CONFIG.c_sg_include_stscntrl_strm {0} \
+CONFIG.c_sg_length_width {23} \
  ] $axi_dma_p1
 
   # Create instance: axi_smc, and set properties
   set axi_smc [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 axi_smc ]
   set_property -dict [ list \
-   CONFIG.NUM_SI {2} \
+CONFIG.NUM_SI {2} \
  ] $axi_smc
 
   # Create instance: axi_smc_1, and set properties
   set axi_smc_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 axi_smc_1 ]
   set_property -dict [ list \
-   CONFIG.NUM_SI {1} \
+CONFIG.NUM_SI {1} \
  ] $axi_smc_1
 
   # Create instance: axi_smc_2, and set properties
   set axi_smc_2 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 axi_smc_2 ]
   set_property -dict [ list \
-   CONFIG.NUM_SI {1} \
+CONFIG.NUM_SI {1} \
  ] $axi_smc_2
 
-  # Create instance: decodePolarData32, and set properties
-  set decodePolarData32 [ create_bd_cell -type ip -vlnv xilinx.com:hls:decodePolarData32:1.0 decodePolarData32 ]
+  # Create instance: decodePolarData32_0, and set properties
+  set decodePolarData32_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:decodePolarData32:1.0 decodePolarData32_0 ]
 
   # Create instance: processing_system7_0, and set properties
   set processing_system7_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 processing_system7_0 ]
   set_property -dict [ list \
-   CONFIG.PCW_FPGA_FCLK0_ENABLE {1} \
-   CONFIG.PCW_FPGA_FCLK1_ENABLE {0} \
-   CONFIG.PCW_FPGA_FCLK2_ENABLE {0} \
-   CONFIG.PCW_FPGA_FCLK3_ENABLE {0} \
-   CONFIG.PCW_USE_S_AXI_HP0 {1} \
-   CONFIG.PCW_USE_S_AXI_HP1 {1} \
-   CONFIG.PCW_USE_S_AXI_HP2 {1} \
+CONFIG.PCW_USE_S_AXI_HP0 {1} \
+CONFIG.PCW_USE_S_AXI_HP1 {1} \
+CONFIG.PCW_USE_S_AXI_HP2 {1} \
  ] $processing_system7_0
 
   # Create instance: ps7_0_axi_periph, and set properties
   set ps7_0_axi_periph [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 ps7_0_axi_periph ]
   set_property -dict [ list \
-   CONFIG.NUM_MI {4} \
+CONFIG.NUM_MI {3} \
  ] $ps7_0_axi_periph
 
   # Create instance: rst_ps7_0_50M, and set properties
   set rst_ps7_0_50M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_ps7_0_50M ]
 
+  # Create instance: xlconstant_0, and set properties
+  set xlconstant_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 xlconstant_0 ]
+
   # Create interface connections
-  connect_bd_intf_net -intf_net axi_dma_frozen_and_decode_M_AXIS_MM2S [get_bd_intf_pins axi_dma_frozen_and_decode/M_AXIS_MM2S] [get_bd_intf_pins decodePolarData32/frozen_bits]
-  connect_bd_intf_net -intf_net axi_dma_frozen_and_decode_M_AXI_MM2S [get_bd_intf_pins axi_dma_frozen_and_decode/M_AXI_MM2S] [get_bd_intf_pins axi_smc/S00_AXI]
-  connect_bd_intf_net -intf_net axi_dma_frozen_and_decode_M_AXI_S2MM [get_bd_intf_pins axi_dma_frozen_and_decode/M_AXI_S2MM] [get_bd_intf_pins axi_smc/S01_AXI]
-  connect_bd_intf_net -intf_net axi_dma_p0_M_AXIS_MM2S [get_bd_intf_pins axi_dma_p0/M_AXIS_MM2S] [get_bd_intf_pins decodePolarData32/probabilities_0]
+  connect_bd_intf_net -intf_net axi_dma_frozen_decoded_M_AXIS_MM2S [get_bd_intf_pins axi_dma_frozen_decoded/M_AXIS_MM2S] [get_bd_intf_pins decodePolarData32_0/frozen_bits]
+  connect_bd_intf_net -intf_net axi_dma_frozen_decoded_M_AXI_MM2S [get_bd_intf_pins axi_dma_frozen_decoded/M_AXI_MM2S] [get_bd_intf_pins axi_smc/S00_AXI]
+  connect_bd_intf_net -intf_net axi_dma_frozen_decoded_M_AXI_S2MM [get_bd_intf_pins axi_dma_frozen_decoded/M_AXI_S2MM] [get_bd_intf_pins axi_smc/S01_AXI]
+  connect_bd_intf_net -intf_net axi_dma_p0_M_AXIS_MM2S [get_bd_intf_pins axi_dma_p0/M_AXIS_MM2S] [get_bd_intf_pins decodePolarData32_0/probabilities_0]
   connect_bd_intf_net -intf_net axi_dma_p0_M_AXI_MM2S [get_bd_intf_pins axi_dma_p0/M_AXI_MM2S] [get_bd_intf_pins axi_smc_1/S00_AXI]
-  connect_bd_intf_net -intf_net axi_dma_p1_M_AXIS_MM2S [get_bd_intf_pins axi_dma_p1/M_AXIS_MM2S] [get_bd_intf_pins decodePolarData32/probabilities_1]
+  connect_bd_intf_net -intf_net axi_dma_p1_M_AXIS_MM2S [get_bd_intf_pins axi_dma_p1/M_AXIS_MM2S] [get_bd_intf_pins decodePolarData32_0/probabilities_1]
   connect_bd_intf_net -intf_net axi_dma_p1_M_AXI_MM2S [get_bd_intf_pins axi_dma_p1/M_AXI_MM2S] [get_bd_intf_pins axi_smc_2/S00_AXI]
   connect_bd_intf_net -intf_net axi_smc_1_M00_AXI [get_bd_intf_pins axi_smc_1/M00_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP1]
   connect_bd_intf_net -intf_net axi_smc_2_M00_AXI [get_bd_intf_pins axi_smc_2/M00_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP2]
   connect_bd_intf_net -intf_net axi_smc_M00_AXI [get_bd_intf_pins axi_smc/M00_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP0]
-  connect_bd_intf_net -intf_net decodePolarData32_decoded_bits [get_bd_intf_pins axi_dma_frozen_and_decode/S_AXIS_S2MM] [get_bd_intf_pins decodePolarData32/decoded_bits]
+  connect_bd_intf_net -intf_net decodePolarData32_0_decoded_bits [get_bd_intf_pins axi_dma_frozen_decoded/S_AXIS_S2MM] [get_bd_intf_pins decodePolarData32_0/decoded_bits]
   connect_bd_intf_net -intf_net processing_system7_0_DDR [get_bd_intf_ports DDR] [get_bd_intf_pins processing_system7_0/DDR]
   connect_bd_intf_net -intf_net processing_system7_0_FIXED_IO [get_bd_intf_ports FIXED_IO] [get_bd_intf_pins processing_system7_0/FIXED_IO]
   connect_bd_intf_net -intf_net processing_system7_0_M_AXI_GP0 [get_bd_intf_pins processing_system7_0/M_AXI_GP0] [get_bd_intf_pins ps7_0_axi_periph/S00_AXI]
-  connect_bd_intf_net -intf_net ps7_0_axi_periph_M00_AXI [get_bd_intf_pins decodePolarData32/s_axi_ctrl_io] [get_bd_intf_pins ps7_0_axi_periph/M00_AXI]
-  connect_bd_intf_net -intf_net ps7_0_axi_periph_M01_AXI [get_bd_intf_pins axi_dma_frozen_and_decode/S_AXI_LITE] [get_bd_intf_pins ps7_0_axi_periph/M01_AXI]
-  connect_bd_intf_net -intf_net ps7_0_axi_periph_M02_AXI [get_bd_intf_pins axi_dma_p0/S_AXI_LITE] [get_bd_intf_pins ps7_0_axi_periph/M02_AXI]
-  connect_bd_intf_net -intf_net ps7_0_axi_periph_M03_AXI [get_bd_intf_pins axi_dma_p1/S_AXI_LITE] [get_bd_intf_pins ps7_0_axi_periph/M03_AXI]
+  connect_bd_intf_net -intf_net ps7_0_axi_periph_M00_AXI [get_bd_intf_pins axi_dma_frozen_decoded/S_AXI_LITE] [get_bd_intf_pins ps7_0_axi_periph/M00_AXI]
+  connect_bd_intf_net -intf_net ps7_0_axi_periph_M01_AXI [get_bd_intf_pins axi_dma_p0/S_AXI_LITE] [get_bd_intf_pins ps7_0_axi_periph/M01_AXI]
+  connect_bd_intf_net -intf_net ps7_0_axi_periph_M02_AXI [get_bd_intf_pins axi_dma_p1/S_AXI_LITE] [get_bd_intf_pins ps7_0_axi_periph/M02_AXI]
 
   # Create port connections
-  connect_bd_net -net processing_system7_0_FCLK_CLK0 [get_bd_pins axi_dma_frozen_and_decode/m_axi_mm2s_aclk] [get_bd_pins axi_dma_frozen_and_decode/m_axi_s2mm_aclk] [get_bd_pins axi_dma_frozen_and_decode/s_axi_lite_aclk] [get_bd_pins axi_dma_p0/m_axi_mm2s_aclk] [get_bd_pins axi_dma_p0/s_axi_lite_aclk] [get_bd_pins axi_dma_p1/m_axi_mm2s_aclk] [get_bd_pins axi_dma_p1/s_axi_lite_aclk] [get_bd_pins axi_smc/aclk] [get_bd_pins axi_smc_1/aclk] [get_bd_pins axi_smc_2/aclk] [get_bd_pins decodePolarData32/ap_clk] [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins processing_system7_0/M_AXI_GP0_ACLK] [get_bd_pins processing_system7_0/S_AXI_HP0_ACLK] [get_bd_pins processing_system7_0/S_AXI_HP1_ACLK] [get_bd_pins processing_system7_0/S_AXI_HP2_ACLK] [get_bd_pins ps7_0_axi_periph/ACLK] [get_bd_pins ps7_0_axi_periph/M00_ACLK] [get_bd_pins ps7_0_axi_periph/M01_ACLK] [get_bd_pins ps7_0_axi_periph/M02_ACLK] [get_bd_pins ps7_0_axi_periph/M03_ACLK] [get_bd_pins ps7_0_axi_periph/S00_ACLK] [get_bd_pins rst_ps7_0_50M/slowest_sync_clk]
+  connect_bd_net -net processing_system7_0_FCLK_CLK0 [get_bd_pins axi_dma_frozen_decoded/m_axi_mm2s_aclk] [get_bd_pins axi_dma_frozen_decoded/m_axi_s2mm_aclk] [get_bd_pins axi_dma_frozen_decoded/s_axi_lite_aclk] [get_bd_pins axi_dma_p0/m_axi_mm2s_aclk] [get_bd_pins axi_dma_p0/s_axi_lite_aclk] [get_bd_pins axi_dma_p1/m_axi_mm2s_aclk] [get_bd_pins axi_dma_p1/s_axi_lite_aclk] [get_bd_pins axi_smc/aclk] [get_bd_pins axi_smc_1/aclk] [get_bd_pins axi_smc_2/aclk] [get_bd_pins decodePolarData32_0/ap_clk] [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins processing_system7_0/M_AXI_GP0_ACLK] [get_bd_pins processing_system7_0/S_AXI_HP0_ACLK] [get_bd_pins processing_system7_0/S_AXI_HP1_ACLK] [get_bd_pins processing_system7_0/S_AXI_HP2_ACLK] [get_bd_pins ps7_0_axi_periph/ACLK] [get_bd_pins ps7_0_axi_periph/M00_ACLK] [get_bd_pins ps7_0_axi_periph/M01_ACLK] [get_bd_pins ps7_0_axi_periph/M02_ACLK] [get_bd_pins ps7_0_axi_periph/S00_ACLK] [get_bd_pins rst_ps7_0_50M/slowest_sync_clk]
   connect_bd_net -net processing_system7_0_FCLK_RESET0_N [get_bd_pins processing_system7_0/FCLK_RESET0_N] [get_bd_pins rst_ps7_0_50M/ext_reset_in]
   connect_bd_net -net rst_ps7_0_50M_interconnect_aresetn [get_bd_pins ps7_0_axi_periph/ARESETN] [get_bd_pins rst_ps7_0_50M/interconnect_aresetn]
-  connect_bd_net -net rst_ps7_0_50M_peripheral_aresetn [get_bd_pins axi_dma_frozen_and_decode/axi_resetn] [get_bd_pins axi_dma_p0/axi_resetn] [get_bd_pins axi_dma_p1/axi_resetn] [get_bd_pins axi_smc/aresetn] [get_bd_pins axi_smc_1/aresetn] [get_bd_pins axi_smc_2/aresetn] [get_bd_pins decodePolarData32/ap_rst_n] [get_bd_pins ps7_0_axi_periph/M00_ARESETN] [get_bd_pins ps7_0_axi_periph/M01_ARESETN] [get_bd_pins ps7_0_axi_periph/M02_ARESETN] [get_bd_pins ps7_0_axi_periph/M03_ARESETN] [get_bd_pins ps7_0_axi_periph/S00_ARESETN] [get_bd_pins rst_ps7_0_50M/peripheral_aresetn]
+  connect_bd_net -net rst_ps7_0_50M_peripheral_aresetn [get_bd_pins axi_dma_frozen_decoded/axi_resetn] [get_bd_pins axi_dma_p0/axi_resetn] [get_bd_pins axi_dma_p1/axi_resetn] [get_bd_pins axi_smc/aresetn] [get_bd_pins axi_smc_1/aresetn] [get_bd_pins axi_smc_2/aresetn] [get_bd_pins decodePolarData32_0/ap_rst_n] [get_bd_pins ps7_0_axi_periph/M00_ARESETN] [get_bd_pins ps7_0_axi_periph/M01_ARESETN] [get_bd_pins ps7_0_axi_periph/M02_ARESETN] [get_bd_pins ps7_0_axi_periph/S00_ARESETN] [get_bd_pins rst_ps7_0_50M/peripheral_aresetn]
+  connect_bd_net -net xlconstant_0_dout [get_bd_pins decodePolarData32_0/ap_start] [get_bd_pins xlconstant_0/dout]
 
   # Create address segments
-  create_bd_addr_seg -range 0x20000000 -offset 0x00000000 [get_bd_addr_spaces axi_dma_frozen_and_decode/Data_MM2S] [get_bd_addr_segs processing_system7_0/S_AXI_HP0/HP0_DDR_LOWOCM] SEG_processing_system7_0_HP0_DDR_LOWOCM
-  create_bd_addr_seg -range 0x20000000 -offset 0x00000000 [get_bd_addr_spaces axi_dma_frozen_and_decode/Data_S2MM] [get_bd_addr_segs processing_system7_0/S_AXI_HP0/HP0_DDR_LOWOCM] SEG_processing_system7_0_HP0_DDR_LOWOCM
+  create_bd_addr_seg -range 0x20000000 -offset 0x00000000 [get_bd_addr_spaces axi_dma_frozen_decoded/Data_MM2S] [get_bd_addr_segs processing_system7_0/S_AXI_HP0/HP0_DDR_LOWOCM] SEG_processing_system7_0_HP0_DDR_LOWOCM
+  create_bd_addr_seg -range 0x20000000 -offset 0x00000000 [get_bd_addr_spaces axi_dma_frozen_decoded/Data_S2MM] [get_bd_addr_segs processing_system7_0/S_AXI_HP0/HP0_DDR_LOWOCM] SEG_processing_system7_0_HP0_DDR_LOWOCM
   create_bd_addr_seg -range 0x20000000 -offset 0x00000000 [get_bd_addr_spaces axi_dma_p0/Data_MM2S] [get_bd_addr_segs processing_system7_0/S_AXI_HP1/HP1_DDR_LOWOCM] SEG_processing_system7_0_HP1_DDR_LOWOCM
   create_bd_addr_seg -range 0x20000000 -offset 0x00000000 [get_bd_addr_spaces axi_dma_p1/Data_MM2S] [get_bd_addr_segs processing_system7_0/S_AXI_HP2/HP2_DDR_LOWOCM] SEG_processing_system7_0_HP2_DDR_LOWOCM
-  create_bd_addr_seg -range 0x00010000 -offset 0x40400000 [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs axi_dma_frozen_and_decode/S_AXI_LITE/Reg] SEG_axi_dma_frozen_and_decode_Reg
+  create_bd_addr_seg -range 0x00010000 -offset 0x40400000 [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs axi_dma_frozen_decoded/S_AXI_LITE/Reg] SEG_axi_dma_frozen_decoded_Reg
   create_bd_addr_seg -range 0x00010000 -offset 0x40410000 [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs axi_dma_p0/S_AXI_LITE/Reg] SEG_axi_dma_p0_Reg
   create_bd_addr_seg -range 0x00010000 -offset 0x40420000 [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs axi_dma_p1/S_AXI_LITE/Reg] SEG_axi_dma_p1_Reg
-  create_bd_addr_seg -range 0x00010000 -offset 0x43C00000 [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs decodePolarData32/s_axi_ctrl_io/Reg] SEG_decodePolarData32_Reg
 
 
   # Restore current instance

@@ -15,7 +15,12 @@ Code, Compile, Run and Debug online from anywhere in world.
 #include <ap_int.h>
 
 typedef ap_uint<1> bitType;
-typedef ap_ufixed<32, 1, AP_RND, AP_WRAP, 1> probabilityType;
+
+#ifdef PYNQ_VERSION
+typedef float probabilityType;
+#else
+typedef ap_ufixed<20, 1, AP_RND, AP_WRAP, 1> probabilityType;
+#endif
 
 struct axis_t
 {

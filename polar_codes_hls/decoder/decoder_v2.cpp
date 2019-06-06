@@ -76,7 +76,7 @@ void decodePolarDataUsingStages(probabilityType probabilities_0[CODE_LENGTH],
 	probabilityType stage2_probabilities0[CODE_LENGTH], stage2_probabilities1[CODE_LENGTH];
 	probabilityType stage1_probabilities0[CODE_LENGTH], stage1_probabilities1[CODE_LENGTH];
 	probabilityType final_probabilities0[CODE_LENGTH],  final_probabilities1[CODE_LENGTH];
-#pragma HLS PIPELINE
+#pragma HLS DATAFLOW
     decodeStage(probabilities_0, probabilities_1,
     		    4,
 				stage4_probabilities0, stage4_probabilities1);
@@ -104,7 +104,7 @@ void decodePolarData32(axis_t probabilities_0[CODE_LENGTH],
 					   axis_t frozen_bits[CODE_LENGTH],
 					   axis_t decoded_bits[CODE_LENGTH])
 {
-#pragma HLS INTERFACE s_axilite port=return bundle=ctrl_io
+//#pragma HLS INTERFACE s_axilite port=return bundle=ctrl_io
 #pragma HLS INTERFACE axis depth=32 port=probabilities_0
 #pragma HLS INTERFACE axis depth=32 port=probabilities_1
 #pragma HLS INTERFACE axis depth=32 port=frozen_bits
