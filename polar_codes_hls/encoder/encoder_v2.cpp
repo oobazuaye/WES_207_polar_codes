@@ -32,7 +32,7 @@ void encodePolarDataUsingStages(bitType U_bits[CODE_LENGTH], bitType encoded_bit
     bitType stage2_bits[CODE_LENGTH];
     bitType stage3_bits[CODE_LENGTH];
     bitType stage4_bits[CODE_LENGTH];
-#pragma HLS PIPELINE
+#pragma HLS DATAFLOW
     encodeStage(U_bits, 0, stage1_bits);
     encodeStage(stage1_bits, 1, stage2_bits);
     encodeStage(stage2_bits, 2, stage3_bits);
@@ -43,7 +43,7 @@ void encodePolarDataUsingStages(bitType U_bits[CODE_LENGTH], bitType encoded_bit
 #ifdef PYNQ_VERSION
 void encodePolarData32(axis_t U_bits[CODE_LENGTH], axis_t encoded_bits[CODE_LENGTH])
 {
-#pragma HLS INTERFACE s_axilite port=return bundle=ctrl_io
+//#pragma HLS INTERFACE s_axilite port=return bundle=ctrl_io
 #pragma HLS INTERFACE axis depth=32 port=U_bits
 #pragma HLS INTERFACE axis depth=32 port=encoded_bits
 

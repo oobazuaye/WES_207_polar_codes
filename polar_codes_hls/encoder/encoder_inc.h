@@ -13,7 +13,11 @@ Code, Compile, Run and Debug online from anywhere in world.
 
 #include <ap_int.h>
 
+#ifdef PYNQ_VERSION
 typedef ap_uint<32> bitType;
+#else
+typedef ap_uint<1> bitType;
+#endif
 
 struct axis_t
 {
