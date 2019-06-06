@@ -11,6 +11,10 @@ library work;
 	
 ---------- POLAR_DECODE_STAGE ------------
 
+-- this module generates all the successive cancellation
+-- decoder probability propagation units for a given
+-- stage of a polar code successive cancellatio decoder.
+
 entity polar_decode_stage is
     generic 
     (
@@ -18,8 +22,6 @@ entity polar_decode_stage is
 	    DISTANCE: positive := 4
     );
     port (
-        --CLK             : in std_logic;
-
         INPUT_PROBS_0     : in probabilityArrayType(0 to N-1);
         INPUT_PROBS_1     : in probabilityArrayType(0 to N-1);
 

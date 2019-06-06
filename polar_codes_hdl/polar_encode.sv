@@ -1,7 +1,10 @@
+
+// this module generates the XOR lattice for the entire
+// polar encoder of a given code length N
 module polar_encode #(parameter N = 16, M = $clog2(N))
 (
-	input logic [0:N-1] input_bits, // Clock Enable
-	output logic [0:N-1] output_bits // Asynchronous reset active low
+	input logic [0:N-1] input_bits,
+	output logic [0:N-1] output_bits
 );
 	logic [0:N-1] intermediate_bits [0:M-1];
 
@@ -17,6 +20,7 @@ module polar_encode #(parameter N = 16, M = $clog2(N))
 	polar_encode_stage #(.N(N), .DISTANCE(N >> 1)) polar_encode_final_stage(.input_bits(intermediate_bits[M-1]), .output_bits(output_bits));
 endmodule
 
+// this module generates the XOR lattice for a given stage of the polar encoder
 module polar_encode_stage #(parameter N = 16, DISTANCE = 1)
 (
 	input logic [0:N-1] input_bits,
@@ -33,12 +37,4 @@ module polar_encode_stage #(parameter N = 16, DISTANCE = 1)
 			end
 		end
 	endgenerate
-endmodule
-
-module polar_encode_test #(parameter N = 16)
-(
-	input logic [0:N-1] input_bits,
-	output logic [0:N-1] output_bits
-);
-	polar_encode #(.N(N)) test(input_bits, output_bits);
 endmodule

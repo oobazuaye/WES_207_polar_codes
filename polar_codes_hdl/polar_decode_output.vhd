@@ -12,6 +12,10 @@ library work;
 
 ---------- POLAR_DECODE_OUTPUT ------------
 
+-- this module performs the determination of the output bits 
+-- according to the given input probabilities and frozen bit selections.
+-- this is the final stage of a successive cancellation decoder.
+
 entity polar_decode_output is
     generic 
     (

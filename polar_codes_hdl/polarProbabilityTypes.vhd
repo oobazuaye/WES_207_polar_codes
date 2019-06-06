@@ -5,8 +5,12 @@ library IEEE;
    use IEEE.float_pkg.all;
    use IEEE.fixed_pkg.all;
 
+-- this package defines the types used for the VHDL
+-- polar code successive cancellation decoder module.
+
 package polarProbabilityTypes is
-	subtype probabilityType is float64;
+	subtype probabilityType is float64; 
+	-- subtype probabilityType is ufixed(0 downto -31); -- fixed point, only using 1 integer bit
 
 	type probabilityArrayType is array(integer range <>) of probabilityType;
 
