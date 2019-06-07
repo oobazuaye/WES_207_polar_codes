@@ -8,9 +8,11 @@ import numpy
 import random
 
 
-MONTE_CARLO_ITERATIONS = 10**6 # the literature uses 10**7, but that takes too long to run in Python
+MONTE_CARLO_ITERATIONS = 10**5 # the literature uses 10**7, but that takes too long to run in Python
 ITERATION_COUNTER_MOD = 10**4
 codeDraw = 0
+fontSize = 16
+writeFont = ("Arial", 16, "normal")
 
 # generates an array of given length with a random bit in each index
 def randomBits(length, print_bits=False):
@@ -42,25 +44,118 @@ def converPErrToFrozenBits(p_errs, num_frozen_bits):
     frozen_bits = [bit_idx in frozen_bit_indices for bit_idx in range(code_length)]
     return frozen_bits
 
+# color gradient code adapted from https://bsou.io/posts/color-gradients-with-python
+def linear_gradient(start_rgb, finish_rgb=(255,255,255), n=10):
+  ''' returns a gradient list of (n) colors between
+    two hex colors. start_rgb and finish_rgb
+    should be RGB tuples'''
+
+  # Initilize a list of the output colors with the starting color
+  RGB_list = [start_rgb]
+  # Calcuate a color at each evenly spaced value of t from 1 to n
+  for t in range(1, n):
+    # Interpolate RGB vector for color at the current value of t
+    curr_vector = [
+      int(start_rgb[j] + (float(t)/(n-1))*(finish_rgb[j]-start_rgb[j]))
+      for j in range(3)
+    ]
+    # Add it to our list of output colors
+    RGB_list.append(curr_vector)
+
+  return RGB_list
+
 # monte carlo simulation used to determine which bits should be frozen bits
 # for a given code length and using the basic SC decoder in AWGN.
 # uses the global variable MONTE_CARLO_ITERATIONS defined at the top of the file
-def determineAwgnFrozenBits(code_length, num_frozen_bits, snr):
+def determineAwgnFrozenBits(code_length, num_frozen_bits, snr, draw=False):
+    log2_result = math.log(code_length, 2)
+    remainder = math.modf(log2_result)[0]
+    
+    if remainder != 0.0:
+        print("Length of data is not power of 2!")
+        return
+
+    if draw:
+        colors = linear_gradient((0, 255, 0), (255, 0, 0), code_length)
+        turtle.mode("logo")
+        turtle.colormode(255)
+        drawScreen = turtle.Screen()
+        turtles = []
+        writingTurtle = turtle.Turtle()
+        writingTurtle.speed(10)
+        channelLength = drawScreen.window_width()/2
+        turtle.bgcolor("black")
+
+
+        #calculate ratios of the diagram based on number of elements
+        turtleSize = 20
+        channelLength = drawScreen.window_width()/2
+        channelSpacing = drawScreen.window_height() / code_length
+        initialX = turtleSize/2 - drawScreen.window_width()/2
+        initialY = drawScreen.window_height()/2 - turtleSize/2 - channelSpacing/2     
+        y_pos = initialY
+        x_start = initialX
+
+        writingTurtle.penup()
+        writingTurtle.goto(initialX, initialY + (fontSize*2))
+        writingTurtle.hideturtle()
+    
     bit_errs = [0] * code_length
     print("running for " + str(MONTE_CARLO_ITERATIONS) + " iterations!")
     print("iteration number ", end=' ')
+        
     for iteration in range(MONTE_CARLO_ITERATIONS):
+        if iteration % ITERATION_COUNTER_MOD == 0:
+            print(iteration, end=' ')
+            if draw:
+                y_pos = initialY
+                writingTurtle.goto(initialX, initialY + (fontSize*2))
+                writingTurtle.clear()
+                writingTurtle.color("white")
+                writingTurtle.write("iteration number " + str(iteration), font = ("Calibri", fontSize, "bold"))
+                
         data = randomBits(code_length)
         encoded_data = polarEncodeSimple(data)
         decoded_data = polarDecodeWithAwgnSimulation(encoded_data, [False] * code_length, snr, True)
         for bit_idx in range(code_length):
             bit_errs[bit_idx] += decoded_data[bit_idx] != data[bit_idx]
-        if iteration % ITERATION_COUNTER_MOD == 0:
-            print(iteration, end=' ')
+
+        if draw and iteration % ITERATION_COUNTER_MOD == 0:
+            p_errs = [num_errs / (1.0 * (iteration + 1)) for num_errs in bit_errs]
+            sorted_bit_errs = sorted(p_errs)
+            print(sorted_bit_errs, p_errs)
+            for bit_idx in range(code_length):
+                err_rate = p_errs[bit_idx]
+                
+                color_idx = sorted_bit_errs.index(err_rate)
+                
+                writingTurtle.penup()
+                writingTurtle.goto(x_start, y_pos)
+                writingTurtle.hideturtle()
+                writingTurtle.color("white")
+                writingTurtle.write("BIT " + str(bit_idx) + " error rate: ", font = writeFont)
+                writingTurtle.color(colors[color_idx])
+                writingTurtle.setx(x_start+(fontSize * 15))
+                writingTurtle.write(err_rate, font = ("Arial", int(fontSize + (fontSize * err_rate)), "bold")) 
+                y_pos -= channelSpacing                
+
+                
     p_errs = [num_errs / (1.0 * MONTE_CARLO_ITERATIONS) for num_errs in bit_errs]
     print()
     print(p_errs)
     frozen_bits = converPErrToFrozenBits(p_errs, num_frozen_bits)
+    
+    if draw:
+        y_pos = initialY
+        for bit_idx in range(code_length):
+            writingTurtle.penup()
+            writingTurtle.goto(x_start, y_pos)
+            writingTurtle.hideturtle()
+            writingTurtle.setx(x_start + (1.5*channelLength))
+            writingTurtle.color((255,0,0) if frozen_bits[bit_idx] else (0,255,0))
+            writingTurtle.write("FROZEN!" if frozen_bits[bit_idx] else "DATA!", font = ("Impact", int(fontSize + (fontSize * err_rate)), "bold")) 
+            y_pos -= channelSpacing
+            
     return frozen_bits
 
 # encodes a given array of bits using the polar encoding algorithm,
